@@ -1,0 +1,227 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"net/url"
+	"strings"
+
+	//	"io/ioutil"
+	"crypto/tls"
+	"net/http/cookiejar"
+
+	"golang.org/x/net/html"
+)
+
+const Host = "https://192.168.160.19:9443"
+
+var loginUrl string
+
+func parse(n *html.Node, postValues url.Values) {
+	if n.Type == html.ElementNode {
+		if n.Data == "form" {
+			for _, f := range n.Attr {
+				if f.Key == "action" {
+					loginUrl = f.Val
+					break
+				}
+			}
+		}
+		if n.Data == "input" {
+			var key, val string
+			for _, f := range n.Attr {
+				if f.Key == "name" {
+					key = f.Val
+				}
+				if f.Key == "value" {
+					val = f.Val
+				}
+			}
+			postValues.Add(key, val)
+			fmt.Println("+++++++++++++++++++++++++++ key, val = ", key, val)
+		}
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		parse(c, postValues)
+	}
+}
+
+func httpRequest(method string, client *http.Client, postValues *url.Values) *url.Values {
+	result := url.Values{}
+	var resp *http.Response
+	var err error
+	if method == "POST" {
+		//resp, err = client.PostForm(loginUrl, *postValues)
+		data := postValues.Encode()
+		req, _ := http.NewRequest("POST", loginUrl, strings.NewReader(data))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		resp, err = client.Do(req)
+		postValues = &url.Values{}
+	} else {
+		//resp, err = client.Get(loginUrl)
+		req, _ := http.NewRequest("GET", loginUrl, nil)
+		resp, err = client.Do(req)
+	}
+	if err != nil {
+		// handle error
+		log.Fatal(err)
+	}
+	status := resp.StatusCode
+	fmt.Println(status)
+	fmt.Println(resp.Header)
+	fmt.Println("##################    cookies")
+	u, _ := url.Parse(loginUrl)
+	for _, cookie := range client.Jar.Cookies(u) {
+		fmt.Printf("  %s: %s\n", cookie.Name, cookie.Value)
+	}
+	//body, err := ioutil.ReadAll(resp.Body)
+	//if err != nil {
+	//	log.Fatal(err)
+	//	return
+	//}
+	//fmt.Println("************************* begin *********************************")
+	//fmt.Println(string(body))
+	//fmt.Println("************************* end   *********************************")
+	doc, err := html.Parse(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		log.Panic(err)
+	}
+	parse(doc, result)
+	fmt.Println("%%%%%%%%%%%%%%%%%     begin")
+	for k, v := range result {
+		fmt.Println(k, v)
+	}
+	fmt.Println("%%%%%%%%%%%%%%%%%     end")
+	return &result
+}
+
+func login() {
+	//jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	//loginUrl = "https://192.168.152.48:9443/devicemgt"
+	loginUrl = Host + "/devicemgt"
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	client := &http.Client{
+		Transport: tr,
+		Jar:       jar,
+	}
+
+	// step 1 ----------------------------------------------------
+	fmt.Println("step 1 ------- ", loginUrl)
+	postValues := httpRequest("GET", client, nil)
+
+	// step 2 ----------------------------------------------------
+	fmt.Println("step 2 ------- ", loginUrl)
+	postValues = httpRequest("POST", client, postValues)
+
+	// step 3 ----------------------------------------------------
+	//loginUrl = "https://localhost:9443" + loginUrl
+	loginUrl = Host + loginUrl
+	fmt.Println("step 3 ------- ", loginUrl)
+	postValues.Set("username", "admin")
+	postValues.Set("password", "admin")
+	postValues = httpRequest("POST", client, postValues)
+	//fmt.Println("*****************     begin")
+	//for k, v := range *postValues {
+	//	fmt.Println(k, v)
+	//}
+	//fmt.Println("*****************     end")
+	//resp, err := client.PostForm(loginUrl, *postValues)
+	//if err != nil {
+	//	// handle error
+	//	log.Fatal(err)
+	//}
+	//status := resp.StatusCode
+	//fmt.Println(status)
+	//body, err := ioutil.ReadAll(resp.Body)
+	//if err != nil {
+	//	// handle error
+	//	log.Fatal(err)
+	//	return
+	//}
+	//fmt.Println("************************* begin *********************************")
+	//fmt.Println(string(body))
+	//fmt.Println("************************* end   *********************************")
+	//fmt.Println("---      response header      ---")
+	//fmt.Println(resp.Header)
+	//u, _ := url.Parse(loginUrl)
+	//for _, cookie := range client.Jar.Cookies(u) {
+	//       fmt.Printf("  %s: %s\n", cookie.Name, cookie.Value)
+	//}
+	//fmt.Println("---      response header      ---")
+	//doc, err := html.Parse(resp.Body)
+	//resp.Body.Close()
+	//parse(doc, *postValues)
+
+	// step 4 ----------------------------------------------------
+	fmt.Println("step 4 ------- ", loginUrl)
+	postValues = httpRequest("POST", client, postValues)
+
+	// step 5 循环创建设备
+	//https://192.168.160.19:9443/devicemgt/api/devices/sketch/download?deviceName=env113&latitude=35.1559455&longitude=109.90908&deviceType=EnvMonitor&sketchType=EnvMonitor
+	strurl := Host + "/devicemgt/api/devices/sketch/download?deviceName=env%s&latitude=%f&longitude=%f&deviceType=EnvMonitor&sketchType=EnvMonitor"
+	latitude, longitude := 36.1559455, 110.90908
+	loginUrl = fmt.Sprintf(strurl, "112", latitude, longitude)
+	fmt.Println(loginUrl)
+	resp, err := client.Get(loginUrl)
+	if err != nil {
+		// handle error
+		log.Fatal(err)
+	}
+	resp.Body.Close()
+	status := resp.StatusCode
+	fmt.Println(status)
+
+	//fmt.Println("step 5 ------- ", loginUrl)
+	//resp, err := client.Get(loginUrl)
+	//pVal := url.Values{}
+	//pVal.Add("name", "cup001")
+	//data := pVal.Encode()
+	////postValues = httpRequest("POST", client, postValues)
+	//fmt.Println("*****************     begin")
+	//for k, v := range pVal {
+	//	fmt.Println(k, v)
+	//}
+	//fmt.Println("*****************     end")
+	//req, _ := http.NewRequest("POST", loginUrl, strings.NewReader(data))
+	//req.SetBasicAuth("admin", "admin")
+	//req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	//resp, err := client.Do(req)
+	//resp, err := client.PostForm(loginUrl, pVal)
+	//if err != nil {
+	//	// handle error
+	//	log.Fatal(err)
+	//}
+	//status := resp.StatusCode
+	//fmt.Println(status)
+	//body, err := ioutil.ReadAll(resp.Body)
+	//if err != nil {
+	//	// handle error
+	//	log.Fatal(err)
+	//	return
+	//}
+	//fmt.Println("************************* begin *********************************")
+	//fmt.Println(string(body))
+	//fmt.Println("************************* end   *********************************")
+	//fmt.Println("---      response header      ---")
+	//fmt.Println(resp.Header)
+	//u, _ := url.Parse(loginUrl)
+	//for _, cookie := range client.Jar.Cookies(u) {
+	//       fmt.Printf("  %s: %s\n", cookie.Name, cookie.Value)
+	//}
+	//fmt.Println("---      response header      ---")
+	//resp.Body.Close()
+
+}
+
+func main() {
+	fmt.Println("Begin ---")
+	login()
+}
