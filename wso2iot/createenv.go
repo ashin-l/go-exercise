@@ -10,7 +10,7 @@ import (
 
 func main() {
 	fmt.Println("Begin ---")
-	host := "https://192.168.160.19:9443"
+	host := "https://192.168.152.48:9443"
 	client := login.Login(host)
 	// step 5 循环创建设备
 	//https://192.168.160.19:9443/devicemgt/api/devices/sketch/download?deviceName=env113&latitude=35.1559455&longitude=109.90908&deviceType=EnvMonitor&sketchType=EnvMonitor
