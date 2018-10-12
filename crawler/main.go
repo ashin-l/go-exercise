@@ -1,27 +1,19 @@
 package main
 
 import (
-	"fmt"
-	"io/ioutil"
-	"net/http"
+	"github.com/ashin-l/go-exercise/crawler/engine"
+	"github.com/ashin-l/go-exercise/crawler/scheduler"
+	"github.com/ashin-l/go-exercise/crawler/zhenai/parser"
 )
 
 func main() {
-	resp, err := http.Get("http://www.zhenai.com/zhenghun")
-	if err != nil {
-		panic(err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Error: status code", resp.StatusCode)
-		return
+	e := engine.ConcurrentEngine{
+		Scheduler:   &scheduler.QueuedScheduler{},
+		WorkerCount: 100,
 	}
 
-	all, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%s\n", all)
+	e.Run(engine.Request{
+		Url:        "http://www.zhenai.com/zhenghun",
+		ParserFunc: parser.ParseCityList,
+	})
 }
