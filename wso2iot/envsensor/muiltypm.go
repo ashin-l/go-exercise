@@ -23,6 +23,22 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 	fmt.Printf("MSG: %s\n", msg.Payload())
 }
 
+const deviceOwner = "admin"
+const djson = `{
+                "event": {
+                    "metaData": {
+                        "owner": "%s",
+                        "deviceId": "%s",
+                        "type": "%s",
+                        "timestamp": %d 
+                    },
+                    "payloadData": {
+                        "pmsensor": %d,
+                        "humiditysensor": %d
+                    }
+                }
+            }`
+
 func main() {
 	dbw := DbWorker{
 		Dsn: "lqc:111@tcp(192.168.152.48:3306)/EnvMonitorDM_DB",
@@ -54,12 +70,6 @@ func main() {
 		}
 	}
 
-	//	for _, id := range dids {
-	//		fmt.Println(id)
-	//	}
-	//	fmt.Println(len(dids))
-	//	panic("Finish")
-
 	myConfig := new(config.Config)
 	myConfig.InitConfig("./deviceConfig.properties")
 	//create a ClientOptions struct setting the broker address, clientid, turn
@@ -77,40 +87,49 @@ func main() {
 		panic(token.Error())
 	}
 
-	deviceOwner := myConfig.Read("Device-Configurations", "owner")
-	deviceType := "pmsensor"
-	deviceId := myConfig.Read("Device-Configurations", "deviceId")
-	topic := "carbon.super/envmonitor/" + deviceId
+	ticker := time.NewTicker(3 * time.Second)
+	for i, deviceId := range dids {
+		<-ticker.C
+		fmt.Println(i)
+		go publishPM(c, deviceId, i)
+		go publishHumidity(c, deviceId, i)
+	}
+	fmt.Println("Done!")
 
 	//	if token := c.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
 	//		fmt.Println(token.Error())
 	//		os.Exit(1)
 	//	}
 
-	djson := `{
-                "event": {
-                    "metaData": {
-                        "owner": "%s",
-                        "deviceId": "%s",
-                        "type": "%s",
-                        "timestamp": %d 
-                    },
-                    "payloadData": {
-                        "pmsensor": %d,
-                        "humiditysensor": %d
-                    }
-                }
-            }`
-	ticker := time.NewTicker(5 * time.Second)
-	rand.Seed(37)
+	for {
+	}
+
+	c.Disconnect(250)
+}
+
+func publishPM(c MQTT.Client, deviceId string, index int) {
+	rand.Seed(int64(index))
+	topic := "carbon.super/envmonitor/" + deviceId
 	mtime := time.Now().UnixNano() / 1e6
+	ticker := time.NewTicker(15 * time.Second)
 	for _ = range ticker.C {
-		mtime += 5000
-		payload := fmt.Sprintf(djson, deviceOwner, deviceId, deviceType, mtime, rand.Intn(40)+10, 55)
+		mtime += 15000
+		payload := fmt.Sprintf(djson, deviceOwner, deviceId, "pmsensor", mtime, rand.Intn(40)+10, 0)
 		//fmt.Println(payload)
 		token := c.Publish(topic, 0, true, payload)
 		token.Wait()
 	}
+}
 
-	c.Disconnect(250)
+func publishHumidity(c MQTT.Client, deviceId string, index int) {
+	topic := "carbon.super/envmonitor/" + deviceId
+	mtime := time.Now().UnixNano() / 1e6
+	ticker := time.NewTicker(30 * time.Second)
+	for _ = range ticker.C {
+		mtime += 30000
+		payload := fmt.Sprintf(djson, deviceOwner, deviceId, "humiditysensor", mtime, 0, index+1)
+		//fmt.Println(payload)
+		token := c.Publish(topic, 0, true, payload)
+		token.Wait()
+	}
 }

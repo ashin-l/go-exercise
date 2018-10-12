@@ -26,8 +26,8 @@ func main() {
 		default:
 			s = "00" + strconv.Itoa(i)
 		}
-		lat := latitude + 0.01*float64(b)
-		lon := longitude + 0.03*float64(y)
+		lat := latitude + 0.05*float64(b)
+		lon := longitude + 0.08*float64(y)
 		createURL := fmt.Sprintf(strurl, s, lat, lon)
 		fmt.Println(createURL)
 		resp, err := client.Get(createURL)
