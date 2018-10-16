@@ -6,13 +6,11 @@ import (
 	"github.com/ashin-l/go-exercise/conf"
 
 	//import the Paho Go MQTT library
-	"math/rand"
+
 	"os"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
-
 	//"strconv"
-	"time"
 )
 
 //define a function for the default message handler
@@ -39,40 +37,44 @@ func main() {
 		panic(token.Error())
 	}
 
-	deviceOwner := myConfig.Read("Device-Configurations", "owner")
-	deviceType := "pmsensor"
-	deviceId := myConfig.Read("Device-Configurations", "deviceId")
-	topic := "carbon.super/envmonitor/" + deviceId
+	//	deviceOwner := myConfig.Read("Device-Configurations", "owner")
+	//	deviceType := "pmsensor"
+	//deviceId := myConfig.Read("Device-Configurations", "deviceId")
+	//topic := "carbon.super/envmonitor/" + deviceId
+	//topic := "carbon.super/EnvMonitor/" + deviceId + "/command"
+	topic := "carbon.super/EnvMonitor/+/command"
 
 	if token := c.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
 		fmt.Println(token.Error())
 		os.Exit(1)
 	}
 
-	djson := `{
-                "event": {
-                    "metaData": {
-                        "owner": "%s",
-                        "deviceId": "%s",
-                        "type": "%s",
-                        "timestamp": %d 
-                    },
-                    "payloadData": {
-                        "pmsensor": %d,
-                        "humiditysensor": %d
-                    }
-                }
-            }`
-	ticker := time.NewTicker(5 * time.Second)
-	rand.Seed(37)
-	mtime := time.Now().UnixNano() / 1e6
-	for _ = range ticker.C {
-		mtime += 5000
-		payload := fmt.Sprintf(djson, deviceOwner, deviceId, deviceType, mtime, rand.Intn(40)+10, 55)
-		//fmt.Println(payload)
-		token := c.Publish(topic, 0, true, payload)
-		token.Wait()
-	}
+	//djson := `{
+	//               "event": {
+	//                   "metaData": {
+	//                       "owner": "%s",
+	//                       "deviceId": "%s",
+	//                       "type": "%s",
+	//                       "timestamp": %d
+	//                   },
+	//                   "payloadData": {
+	//                       "pmsensor": %d,
+	//                       "humiditysensor": %d
+	//                   }
+	//               }
+	//           }`
+	//ticker := time.NewTicker(5 * time.Second)
+	//rand.Seed(37)
+	//mtime := time.Now().UnixNano() / 1e6
+	//for _ = range ticker.C {
+	//	mtime += 5000
+	//	payload := fmt.Sprintf(djson, deviceOwner, deviceId, deviceType, mtime, rand.Intn(40)+10, 55)
+	//	//fmt.Println(payload)
+	//	token := c.Publish(topic, 0, true, payload)
+	//	token.Wait()
+	//}
 
+	var cn chan struct{}
+	<-cn
 	c.Disconnect(250)
 }

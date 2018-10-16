@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"os"
 
 	"math/rand"
 	"time"
@@ -12,15 +14,15 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-type DbWorker struct {
-	//mysql data source name
-	Dsn string
-}
-
 //define a function for the default message handler
 var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 	fmt.Printf("TOPIC: %s\n", msg.Topic())
 	fmt.Printf("MSG: %s\n", msg.Payload())
+}
+
+type DbWorker struct {
+	//mysql data source name
+	Dsn string
 }
 
 const deviceOwner = "admin"
@@ -40,6 +42,23 @@ const djson = `{
             }`
 
 func main() {
+	fileName := "info.log"
+	logFile, err := os.Create(fileName)
+	defer logFile.Close()
+	if err != nil {
+		log.Fatalln("open file error !")
+	}
+	// 创建一个日志对象
+	infoLog := log.New(logFile, "[Info]", log.LstdFlags)
+	infoLog.Println("A debug message here")
+	infoLog.Printf("haha  %d", 3)
+	////配置一个日志格式的前缀
+	//infoLog.SetPrefix("[Info]")
+	//infoLog.Println("A Info Message here ")
+	////配置log的Flag参数
+	//infoLog.SetFlags(infoLog.Flags() | log.LstdFlags)
+	//infoLog.Println("A different prefix")
+
 	dbw := DbWorker{
 		Dsn: "lqc:111@tcp(192.168.152.48:3306)/EnvMonitorDM_DB",
 	}
@@ -87,27 +106,26 @@ func main() {
 		panic(token.Error())
 	}
 
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(500 * time.Millisecond)
 	for i, deviceId := range dids {
 		<-ticker.C
 		fmt.Println(i)
-		go publishPM(c, deviceId, i)
-		go publishHumidity(c, deviceId, i)
+		go publishPM(c, deviceId, i, infoLog)
+		go publishHumidity(c, deviceId, i, infoLog)
 	}
-	fmt.Println("Done!")
+	fmt.Println("Done!", time.Now())
 
 	//	if token := c.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
 	//		fmt.Println(token.Error())
 	//		os.Exit(1)
 	//	}
 
-	for {
-	}
-
+	var nc chan struct{} //nil channel
+	<-nc
 	c.Disconnect(250)
 }
 
-func publishPM(c MQTT.Client, deviceId string, index int) {
+func publishPM(c MQTT.Client, deviceId string, index int, infoLog *log.Logger) {
 	rand.Seed(int64(index))
 	topic := "carbon.super/envmonitor/" + deviceId
 	mtime := time.Now().UnixNano() / 1e6
@@ -116,18 +134,21 @@ func publishPM(c MQTT.Client, deviceId string, index int) {
 		mtime += 15000
 		payload := fmt.Sprintf(djson, deviceOwner, deviceId, "pmsensor", mtime, rand.Intn(40)+10, 0)
 		//fmt.Println(payload)
-		token := c.Publish(topic, 0, true, payload)
-		token.Wait()
+		infoLog.Printf("PMSendor: #%d, DeviceId: %s, time: %d\n", index, deviceId, mtime)
+		_ = c.Publish(topic, 0, true, payload)
+		//token := c.Publish(topic, 0, true, payload)
+		//token.Wait()
 	}
 }
 
-func publishHumidity(c MQTT.Client, deviceId string, index int) {
+func publishHumidity(c MQTT.Client, deviceId string, index int, infoLog *log.Logger) {
 	topic := "carbon.super/envmonitor/" + deviceId
 	mtime := time.Now().UnixNano() / 1e6
 	ticker := time.NewTicker(30 * time.Second)
 	for _ = range ticker.C {
 		mtime += 30000
 		payload := fmt.Sprintf(djson, deviceOwner, deviceId, "humiditysensor", mtime, 0, index+1)
+		infoLog.Printf("HMSendor: #%d, DeviceId: %s, time: %d\n", index, deviceId, mtime)
 		//fmt.Println(payload)
 		token := c.Publish(topic, 0, true, payload)
 		token.Wait()
