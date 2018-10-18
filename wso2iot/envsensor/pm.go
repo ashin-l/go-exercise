@@ -46,11 +46,6 @@ func main() {
 	//topic := "carbon.super/EnvMonitor/" + deviceId + "/command"
 	topic := "carbon.super/envmonitor/" + deviceId + "/sensorval"
 
-	if token := c.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
-		fmt.Println(token.Error())
-		os.Exit(1)
-	}
-
 	djson := `{
 	               "event": {
 	                   "metaData": {
