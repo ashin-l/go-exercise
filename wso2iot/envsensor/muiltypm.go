@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"math/rand"
 	"time"
@@ -20,13 +21,46 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 	fmt.Printf("MSG: %s\n", msg.Payload())
 }
 
+func cmdHandler(msg MQTT.Message, states map[string][2]chan bool) {
+	topics := strings.Split(msg.Topic(), "/")
+	if len(topics) != 4 {
+		panic("error length!")
+	}
+	if string(msg.Payload()) == "on" {
+		states[topics[2]][0] <- true
+		states[topics[2]][1] <- true
+	} else {
+		states[topics[2]][0] <- false
+		states[topics[2]][1] <- false
+	}
+}
+
+func opHandler(msg MQTT.Message, states map[string][2]chan bool) {
+	fmt.Printf("TOPIC: %s\n", msg.Topic())
+	fmt.Printf("MSG: %s\n", msg.Payload())
+	//	topics := strings.Split(msg.Topic(), "/")
+	//	if len(topics) != 4 {
+	//		panic("error length!")
+	//	}
+	//	if string(msg.Payload()) == "on" {
+	//		states[topics[2]][0] <- true
+	//		states[topics[2]][1] <- true
+	//	} else {
+	//		states[topics[2]][0] <- false
+	//		states[topics[2]][1] <- false
+	//	}
+}
+
 type DbWorker struct {
 	//mysql data source name
 	Dsn string
 }
 
-const deviceOwner = "admin"
-const djson = `{
+const (
+	deviceOwner = "admin"
+	cmdTopic    = "carbon.super/EnvMonitor/+/command"
+	opTopic     = "carbon.super/EnvMonitor/operation"
+	djson       = `{
                 "event": {
                     "metaData": {
                         "owner": "%s",
@@ -40,6 +74,12 @@ const djson = `{
                     }
                 }
             }`
+)
+
+var (
+	infoLog *log.Logger
+	client  MQTT.Client
+)
 
 func main() {
 	fileName := "info.log"
@@ -49,12 +89,12 @@ func main() {
 		log.Fatalln("open file error !")
 	}
 	// 创建一个日志对象
-	infoLog := log.New(logFile, "[Info]", log.LstdFlags)
+	infoLog = log.New(logFile, "[Info]", log.LstdFlags)
 	infoLog.Println("A debug message here")
 	infoLog.Printf("haha  %d", 3)
 	////配置一个日志格式的前缀
 	//infoLog.SetPrefix("[Info]")
-	//infoLog.Println("A Info Message here ")
+	//infoLog.Printsln("A Info Message here ")
 	////配置log的Flag参数
 	//infoLog.SetFlags(infoLog.Flags() | log.LstdFlags)
 	//infoLog.Println("A different prefix")
@@ -100,57 +140,96 @@ func main() {
 	opts.SetCleanSession(true)
 
 	//create and start a client using the above ClientOptions
-	c := MQTT.NewClient(opts)
-	if token := c.Connect(); token.Wait() && token.Error() != nil {
+	client = MQTT.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		fmt.Println(token.Error())
 		panic(token.Error())
 	}
 
+	states := make(map[string][2]chan bool)
+	for _, deviceId := range dids {
+		states[deviceId] = [2]chan bool{make(chan bool), make(chan bool)}
+		go publishPM(deviceId, states[deviceId][0])
+		go publishHumidity(deviceId, states[deviceId][1])
+	}
+	fmt.Println(len(states))
 	ticker := time.NewTicker(500 * time.Millisecond)
-	for i, deviceId := range dids {
+	for id, state := range states {
 		<-ticker.C
-		fmt.Println(i)
-		go publishPM(c, deviceId, i, infoLog)
-		go publishHumidity(c, deviceId, i, infoLog)
+		fmt.Println("DeviceId: ", id)
+		state[0] <- true
+		state[1] <- true
 	}
 	fmt.Println("Done!", time.Now())
 
-	//	if token := c.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
-	//		fmt.Println(token.Error())
-	//		os.Exit(1)
-	//	}
+	token := client.Subscribe(cmdTopic, 2, func(client MQTT.Client, msg MQTT.Message) {
+		cmdHandler(msg, states)
+	})
+	if token.Wait() && token.Error() != nil {
+		fmt.Println(token.Error())
+		os.Exit(1)
+	}
+
+	token = client.Subscribe(opTopic, 2, func(client MQTT.Client, msg MQTT.Message) {
+		opHandler(msg, states)
+	})
+	if token.Wait() && token.Error() != nil {
+		fmt.Println(token.Error())
+		os.Exit(1)
+	}
 
 	var nc chan struct{} //nil channel
 	<-nc
-	c.Disconnect(250)
+	client.Disconnect(250)
 }
 
-func publishPM(c MQTT.Client, deviceId string, index int, infoLog *log.Logger) {
-	rand.Seed(int64(index))
-	topic := "carbon.super/envmonitor/" + deviceId
+func publish(interval int, deviceId string, sensortype string, state chan bool) {
+	topic := "carbon.super/envmonitor/" + deviceId + "/sensorval"
 	mtime := time.Now().UnixNano() / 1e6
-	ticker := time.NewTicker(15 * time.Second)
-	for _ = range ticker.C {
-		mtime += 15000
-		payload := fmt.Sprintf(djson, deviceOwner, deviceId, "pmsensor", mtime, rand.Intn(40)+10, 0)
-		//fmt.Println(payload)
-		infoLog.Printf("PMSendor: #%d, DeviceId: %s, time: %d\n", index, deviceId, mtime)
-		_ = c.Publish(topic, 0, true, payload)
-		//token := c.Publish(topic, 0, true, payload)
-		//token.Wait()
+	rand.Seed(mtime)
+	pmval, hmval := 0, 0
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			mtime += int64(interval * 1000)
+			if sensortype == "pmsensor" {
+				pmval = rand.Intn(40) + 10
+			} else {
+				hmval = rand.Intn(100)
+			}
+			payload := fmt.Sprintf(djson, deviceOwner, deviceId, sensortype, mtime, pmval, hmval)
+			fmt.Println(payload)
+			infoLog.Printf("PMSensor: DeviceId: %s, time: %d\n", deviceId, mtime)
+			_ = client.Publish(topic, 0, true, payload)
+			//token := client.Publish(topic, 0, true, payload)
+			//token.Wait()
+		case isOpen := <-state:
+			if !isOpen {
+				return
+			}
+		}
 	}
 }
 
-func publishHumidity(c MQTT.Client, deviceId string, index int, infoLog *log.Logger) {
-	topic := "carbon.super/envmonitor/" + deviceId
-	mtime := time.Now().UnixNano() / 1e6
-	ticker := time.NewTicker(30 * time.Second)
-	for _ = range ticker.C {
-		mtime += 30000
-		payload := fmt.Sprintf(djson, deviceOwner, deviceId, "humiditysensor", mtime, 0, index+1)
-		infoLog.Printf("HMSendor: #%d, DeviceId: %s, time: %d\n", index, deviceId, mtime)
-		//fmt.Println(payload)
-		token := c.Publish(topic, 0, true, payload)
-		token.Wait()
+func publishPM(deviceId string, state chan bool) {
+	for {
+		select {
+		case isOpen := <-state:
+			if isOpen {
+				publish(15, deviceId, "pmsensor", state)
+			}
+		}
+	}
+}
+
+func publishHumidity(deviceId string, state chan bool) {
+	for {
+		select {
+		case isOpen := <-state:
+			if isOpen {
+				publish(30, deviceId, "humiditysensor", state)
+			}
+		}
 	}
 }
