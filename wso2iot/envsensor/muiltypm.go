@@ -94,7 +94,6 @@ func main() {
 	infoLog.Printf("haha  %d", 3)
 	////配置一个日志格式的前缀
 	//infoLog.SetPrefix("[Info]")
-	//infoLog.Printsln("A Info Message here ")
 	//infoLog.Println("A Info Message here ")
 	////配置log的Flag参数
 	//infoLog.SetFlags(infoLog.Flags() | log.LstdFlags)
@@ -221,7 +220,7 @@ func publishPM(deviceId string, state chan bool) {
 				publish(15, deviceId, "pmsensor", state)
 			}
 		}
-	}
+}
 }
 
 func publishHumidity(deviceId string, state chan bool) {

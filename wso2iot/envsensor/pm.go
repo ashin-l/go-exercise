@@ -71,6 +71,11 @@ func main() {
 		token.Wait()
 	}
 
+	if token := c.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
+		fmt.Println(token.Error())
+		os.Exit(1)
+	}
+
 	var cn chan struct{}
 	<-cn
 	c.Disconnect(250)
