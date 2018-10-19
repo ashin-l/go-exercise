@@ -30,10 +30,10 @@ func cmdHandler(msg MQTT.Message, states map[string][2]chan bool) {
 	var isOpen bool
 	if string(msg.Payload()) == "on" {
 		isOpen = true
-		states[topics[2]][0] <- true
-		states[topics[2]][1] <- true
+		fmt.Printf("DeviceId: %s, open!\n", topics[2])
 	} else {
 		isOpen = false
+		fmt.Printf("DeviceId: %s, close!\n", topics[2])
 	}
 	if v, ok := states[topics[2]]; ok {
 		v[0] <- isOpen
@@ -50,6 +50,11 @@ func opHandler(msg MQTT.Message, states map[string][2]chan bool) {
 	var isOpen bool
 	if v, ok := data["isOpen"]; ok {
 		isOpen = v.(bool)
+		if isOpen {
+			fmt.Println("Open all devices!")
+		} else {
+			fmt.Println("Close all devices!")
+		}
 	} else {
 		return
 	}

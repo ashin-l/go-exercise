@@ -1,9 +1,4 @@
 /.vscode/
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 .DS_Store
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 *.log
+/wso2iot/envsensor/mqttex.go
