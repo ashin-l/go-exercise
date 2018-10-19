@@ -16,9 +16,9 @@ func main() {
 	// step 5 循环创建设备
 	//https://192.168.160.19:9443/devicemgt/api/devices/sketch/download?deviceName=env113&latitude=35.1559455&longitude=109.90908&deviceType=EnvMonitor&sketchType=EnvMonitor
 	strurl := host + "/devicemgt/api/devices/sketch/download?deviceName=env%s&latitude=%f&longitude=%f&deviceType=EnvMonitor&sketchType=EnvMonitor"
-	//create(34.111781, 108.785222, "0", strurl)
+	create(34.111781, 108.785222, "0", strurl, client)
 	//create(34.219237, 108.797547, "1", strurl, client)
-	create(33.376421, 108.697655, "2", strurl, client)
+	//create(33.376421, 108.697655, "2", strurl, client)
 	/*
 		latitude, longitude := 34.111781, 108.785222
 		for i := 1; i != 100; i++ {

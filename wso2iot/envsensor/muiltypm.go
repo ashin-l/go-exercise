@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -26,29 +27,41 @@ func cmdHandler(msg MQTT.Message, states map[string][2]chan bool) {
 	if len(topics) != 4 {
 		panic("error length!")
 	}
+	var isOpen bool
 	if string(msg.Payload()) == "on" {
+		isOpen = true
 		states[topics[2]][0] <- true
 		states[topics[2]][1] <- true
 	} else {
-		states[topics[2]][0] <- false
-		states[topics[2]][1] <- false
+		isOpen = false
+	}
+	if v, ok := states[topics[2]]; ok {
+		v[0] <- isOpen
+		v[1] <- isOpen
 	}
 }
 
 func opHandler(msg MQTT.Message, states map[string][2]chan bool) {
-	fmt.Printf("TOPIC: %s\n", msg.Topic())
-	fmt.Printf("MSG: %s\n", msg.Payload())
-	//	topics := strings.Split(msg.Topic(), "/")
-	//	if len(topics) != 4 {
-	//		panic("error length!")
-	//	}
-	//	if string(msg.Payload()) == "on" {
-	//		states[topics[2]][0] <- true
-	//		states[topics[2]][1] <- true
-	//	} else {
-	//		states[topics[2]][0] <- false
-	//		states[topics[2]][1] <- false
-	//	}
+	var data = make(map[string]interface{})
+	err := json.Unmarshal(msg.Payload(), &data)
+	if err != nil {
+		panic(err)
+	}
+	var isOpen bool
+	if v, ok := data["isOpen"]; ok {
+		isOpen = v.(bool)
+	} else {
+		return
+	}
+	if v, ok := data["deviceIds"]; ok {
+		ids := v.([]interface{})
+		for _, id := range ids {
+			if v, ok := states[id.(string)]; ok {
+				v[0] <- isOpen
+				v[1] <- isOpen
+			}
+		}
+	}
 }
 
 type DbWorker struct {
@@ -152,7 +165,6 @@ func main() {
 		go publishPM(deviceId, states[deviceId][0])
 		go publishHumidity(deviceId, states[deviceId][1])
 	}
-	fmt.Println(len(states))
 	ticker := time.NewTicker(500 * time.Millisecond)
 	for id, state := range states {
 		<-ticker.C
@@ -160,7 +172,7 @@ func main() {
 		state[0] <- true
 		state[1] <- true
 	}
-	fmt.Println("Done!", time.Now())
+	fmt.Printf("Done! %d devices, time: %s\n", len(states), time.Now())
 
 	token := client.Subscribe(cmdTopic, 2, func(client MQTT.Client, msg MQTT.Message) {
 		cmdHandler(msg, states)
@@ -199,7 +211,6 @@ func publish(interval int, deviceId string, sensortype string, state chan bool) 
 				hmval = rand.Intn(100)
 			}
 			payload := fmt.Sprintf(djson, deviceOwner, deviceId, sensortype, mtime, pmval, hmval)
-			fmt.Println(payload)
 			infoLog.Printf("PMSensor: DeviceId: %s, time: %d\n", deviceId, mtime)
 			_ = client.Publish(topic, 0, true, payload)
 			//token := client.Publish(topic, 0, true, payload)
@@ -220,7 +231,7 @@ func publishPM(deviceId string, state chan bool) {
 				publish(15, deviceId, "pmsensor", state)
 			}
 		}
-}
+	}
 }
 
 func publishHumidity(deviceId string, state chan bool) {
@@ -231,7 +242,5 @@ func publishHumidity(deviceId string, state chan bool) {
 				publish(30, deviceId, "humiditysensor", state)
 			}
 		}
-    }
+	}
 }
-
-
