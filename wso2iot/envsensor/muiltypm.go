@@ -35,10 +35,10 @@ func cmdHandler(msg MQTT.Message, states map[string][2]chan bool) {
 		isOpen = false
 		fmt.Printf("DeviceId: %s, close!\n", topics[2])
 	}
-	if v, ok := states[topics[2]]; ok {
-		v[0] <- isOpen
-		v[1] <- isOpen
-	}
+    if v, ok := states[topics[2]]; ok {
+        v[0] <- isOpen
+        v[1] <- isOpen
+    }
 }
 
 func opHandler(msg MQTT.Message, states map[string][2]chan bool) {
@@ -52,8 +52,28 @@ func opHandler(msg MQTT.Message, states map[string][2]chan bool) {
 		isOpen = v.(bool)
 		if isOpen {
 			fmt.Println("Open all devices!")
+	        if v, ok := data["deviceIds"]; ok {
+	        	ids := v.([]interface{})
+	            ticker := time.NewTicker(500 * time.Millisecond)
+	        	for _, id := range ids {
+                    <-ticker.C
+	        		if v, ok := states[id.(string)]; ok {
+	        			v[0] <- isOpen
+	        			v[1] <- isOpen
+	        		}
+	        	}
+	        }
 		} else {
 			fmt.Println("Close all devices!")
+	        if v, ok := data["deviceIds"]; ok {
+	        	ids := v.([]interface{})
+	        	for _, id := range ids {
+	        		if v, ok := states[id.(string)]; ok {
+	        			v[0] <- isOpen
+	        			v[1] <- isOpen
+	        		}
+	        	}
+	        }
 		}
 	} else {
 		return
@@ -100,6 +120,7 @@ var (
 )
 
 func main() {
+    now := time.Now()    
 	fileName := "info.log"
 	logFile, err := os.Create(fileName)
 	defer logFile.Close()
@@ -170,13 +191,16 @@ func main() {
 		go publishPM(deviceId, states[deviceId][0])
 		go publishHumidity(deviceId, states[deviceId][1])
 	}
+    count := 0
 	ticker := time.NewTicker(500 * time.Millisecond)
 	for id, state := range states {
 		<-ticker.C
-		fmt.Println("DeviceId: ", id)
+        count++
+		fmt.Printf("#%d,DeviceId: %s\n", count, id)
 		state[0] <- true
 		state[1] <- true
 	}
+    fmt.Printf("打开总时间:%v\n", time.Now().Sub(now))
 	fmt.Printf("Done! %d devices, time: %s\n", len(states), time.Now())
 
 	token := client.Subscribe(cmdTopic, 2, func(client MQTT.Client, msg MQTT.Message) {
@@ -216,7 +240,7 @@ func publish(interval int, deviceId string, sensortype string, state chan bool) 
 				hmval = rand.Intn(100)
 			}
 			payload := fmt.Sprintf(djson, deviceOwner, deviceId, sensortype, mtime, pmval, hmval)
-			infoLog.Printf("PMSensor: DeviceId: %s, time: %d\n", deviceId, mtime)
+			//infoLog.Printf("PMSensor: DeviceId: %s, time: %d\n", deviceId, mtime)
 			_ = client.Publish(topic, 0, true, payload)
 			//token := client.Publish(topic, 0, true, payload)
 			//token.Wait()
@@ -233,7 +257,7 @@ func publishPM(deviceId string, state chan bool) {
 		select {
 		case isOpen := <-state:
 			if isOpen {
-				publish(15, deviceId, "pmsensor", state)
+				publish(20, deviceId, "pmsensor", state)
 			}
 		}
 	}
