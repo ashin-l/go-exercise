@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/ashin-l/go-exercise/crawler/model"
-
 	"github.com/ashin-l/go-exercise/crawler/engine"
+	"github.com/ashin-l/go-exercise/crawler/model"
+	"github.com/ashin-l/go-exercise/crawler_distributed/config"
 )
 
 var genderRe = regexp.MustCompile(`<td><span class="label">性别：</span><span field="">([^<]+)</span></td>`)
@@ -83,7 +83,7 @@ func (p *ProfileParser) Parse(contents []byte, url string) engine.ParseResult {
 }
 
 func (p *ProfileParser) Serialize() (name string, args interface{}) {
-	return "ProfileParser", p.userName
+	return config.ParseProfile, p.userName
 }
 
 func NewProfileParser(name string) *ProfileParser {
