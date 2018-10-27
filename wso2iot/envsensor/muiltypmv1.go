@@ -129,7 +129,6 @@ func main() {
 	// 创建一个日志对象
 	infoLog = log.New(logFile, "[Info]", log.LstdFlags)
 	infoLog.Println("A debug message here")
-	infoLog.Printf("haha  %d", 3)
 	////配置一个日志格式的前缀
 	//infoLog.SetPrefix("[Info]")
 	//infoLog.Println("A Info Message here ")
@@ -173,22 +172,13 @@ func main() {
 	//off trace output and set the default message handler
 	fmt.Println("Begin ...")
 	opts := MQTT.NewClientOptions().AddBroker(myConfig.Read("Device-Configurations", "mqtt-ep"))
-	opts.SetClientID("admin:EnvMonitor")
 	opts.SetDefaultPublishHandler(f)
 	opts.SetCleanSession(true)
-
-	//create and start a client using the above ClientOptions
-	sclient := MQTT.NewClient(opts)
-	if token := sclient.Connect(); token.Wait() && token.Error() != nil {
-		fmt.Println(token.Error())
-		panic(token.Error())
-	}
 
 	clients = make(map[string]MQTT.Client)
 	states := make(map[string][2]chan bool)
 	for _, deviceId := range dids {
 		opts.SetClientID("admin:EnvMonitor:" + deviceId)
-		fmt.Println(opts.ClientID)
 		client := MQTT.NewClient(opts)
 		if token := client.Connect(); token.Wait() && token.Error() != nil {
 			fmt.Println(token.Error())
@@ -205,11 +195,20 @@ func main() {
 		<-ticker.C
 		count++
 		fmt.Printf("#%d,DeviceId: %s\n", count, id)
+		infoLog.Printf("#%d,DeviceId: %s\n", count, id)
 		state[0] <- true
 		state[1] <- true
 	}
 	fmt.Printf("打开总时间:%v\n", time.Now().Sub(now))
 	fmt.Printf("Done! %d devices, time: %s\n", len(states), time.Now())
+
+	//create and start a client using the above ClientOptions
+	opts.SetClientID("admin:EnvMonitor")
+	sclient := MQTT.NewClient(opts)
+	if token := sclient.Connect(); token.Wait() && token.Error() != nil {
+		fmt.Println(token.Error())
+		panic(token.Error())
+	}
 
 	token := sclient.Subscribe(cmdTopic, 2, func(client MQTT.Client, msg MQTT.Message) {
 		cmdHandler(msg, states)
