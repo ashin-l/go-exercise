@@ -1,7 +1,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
+	"net/rpc"
+	"strings"
+
+	"github.com/ashin-l/go-exercise/crawler_distributed/rpcsupport"
 
 	"github.com/ashin-l/go-exercise/crawler/engine"
 	"github.com/ashin-l/go-exercise/crawler/scheduler"
@@ -11,12 +17,22 @@ import (
 	worker "github.com/ashin-l/go-exercise/crawler_distributed/worker/client"
 )
 
+var itemSaverHost = flag.String("itemsaver_host", "", "itemsaver host")
+var workerHosts = flag.String("worker_hosts", "", "worker hosts (comma separated)")
+
 func main() {
-	itemChan, err := itemsaver.ItemSaver(fmt.Sprintf(":%d", config.ItemSaverPort))
+	flag.Parse()
+	if *itemSaverHost == "" || *workerHosts == "" {
+		fmt.Println("must specify ports")
+		return
+	}
+	itemChan, err := itemsaver.ItemSaver(*itemSaverHost)
 	if err != nil {
 		panic(err)
 	}
-	processor, err := worker.CreateProcessor()
+	hosts := strings.Split(*workerHosts, ",")
+	pool := createClientPool(hosts)
+	processor := worker.CreateProcessor(pool)
 	if err != nil {
 		panic(err)
 	}
@@ -36,4 +52,26 @@ func main() {
 	//	Url:        "http://www.zhenai.com/zhenghun",
 	//	ParserFunc: parser.ParseCityList,
 	//})
+}
+
+func createClientPool(hosts []string) chan *rpc.Client {
+	var clients []*rpc.Client
+	for _, h := range hosts {
+		client, err := rpcsupport.NewClient(h)
+		if err != nil {
+			log.Printf("Error connecting to port %s: %v", h, err)
+		} else {
+			clients = append(clients, client)
+			log.Printf("Connected to port %s", h)
+		}
+	}
+	out := make(chan *rpc.Client)
+	go func() {
+		for {
+			for _, client := range clients {
+				out <- client
+			}
+		}
+	}()
+	return out
 }
