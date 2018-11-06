@@ -61,6 +61,7 @@ func opHandler(msg MQTT.Message, states map[string][2]chan bool) {
 						v[1] <- isOpen
 					}
 				}
+				ticker.Stop()
 			}
 		} else {
 			fmt.Println("Close all devices!")
@@ -199,6 +200,7 @@ func main() {
 		state[0] <- true
 		state[1] <- true
 	}
+	ticker.Stop()
 	fmt.Printf("打开总时间:%v\n", time.Now().Sub(now))
 	fmt.Printf("Done! %d devices, time: %s\n", len(states), time.Now())
 
@@ -253,6 +255,7 @@ func publish(interval int, deviceId string, sensortype string, state chan bool) 
 			//token.Wait()
 		case isOpen := <-state:
 			if !isOpen {
+				ticker.Stop()
 				return
 			}
 		}
