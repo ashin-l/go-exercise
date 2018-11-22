@@ -7,13 +7,16 @@ import (
 )
 
 func main() {
-	arr := util.RandArray(7)
+	arr := util.RandArray(13)
 	fmt.Println(arr)
 	//bubbleSort(arr)
 	//selectSort(arr)
 	//arr = mergeSort(arr)
 	//cocktailSort(arr)
 	//gnomeSort(arr)
-	arr = quickSort(arr)
+	//arr = quickSort(arr)
+	//heapSort(arr)
+	//shellSort(arr)
+	arr = countSort(arr)
 	fmt.Println(arr)
 }
