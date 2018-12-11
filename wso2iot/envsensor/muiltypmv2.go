@@ -271,8 +271,8 @@ func publish(interval int, deviceId string, sensortype string, state chan bool) 
 			payload := fmt.Sprintf(djson, deviceOwner, deviceId, sensortype, mtime, pmval, hmval)
 			//infoLog.Printf("PMSensor: DeviceId: %s, time: %d\n", deviceId, mtime)
 			client := <-clientChan
-			_ = (*client).Publish(topic, 0, true, payload)
-			//token := client.Publish(topic, 0, true, payload)
+			_ = (*client).Publish(topic, 1, false, payload)
+			//token := client.Publish(topic, 1, false, payload)
 			//token.Wait()
 		case isOpen := <-state:
 			if !isOpen {

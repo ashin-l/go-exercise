@@ -159,7 +159,6 @@ func publish(interval int, deviceId string, sensortype string, state chan bool) 
 			fmt.Println(payload)
 			//infoLog.Printf("PMSensor: DeviceId: %s, time: %d\n", deviceId, mtime)
 			token := clients[deviceId].Publish(topic, 1, false, payload)
-			//token := client.Publish(topic, 0, true, payload)
 			token.Wait()
 			m.Lock()
 			msgnum++
