@@ -35,34 +35,17 @@ type DbWorker struct {
 	Dsn string
 }
 
-/*
-const (
-	djson = `{
-                "event": {
-                    "metaData": {
-                        "owner": "admin",
-                        "deviceId": "%s",
-                    },
-                    "payloadData": {
-						"client_time": %d,
-						"pmsensor": 37,
-						"other" : "%s",
-                    }
-                }
-            }`
-)
-*/
-
 var (
-	server           string
-	djson            string
-	other            []byte
-	prefix           string
-	pubtopic         string
-	infoLog          *log.Logger
-	clients          map[string]MQTT.Client
+	server   string
+	djson    string
+	other    []byte
+	prefix   string
+	pubtopic string
+	infoLog  *log.Logger
+	//clients          map[string]MQTT.Client
 	successClientNum int
 	perCount         int
+	createInterval   int
 	maxClient        int
 	pubTimes         int
 	pubInterval      int
@@ -73,6 +56,7 @@ var (
 	failMsgNum       int
 	lostNum          int
 	pubClientNum     int
+	muSuccessClient  sync.Mutex
 	muFailClient     sync.Mutex
 	muSuccessMsg     sync.Mutex
 	muFailMsg        sync.Mutex
@@ -93,7 +77,7 @@ func main() {
 	}
 	prefix = conf.Read("base", "prefix")
 	if prefix == "" {
-		prefix = "Pub:"
+		prefix = "Pub"
 	}
 	djson = conf.Read("base", "payload")
 	pubtopic = conf.Read("base", "pubtopic")
@@ -106,10 +90,11 @@ func main() {
 	for i := range other {
 		other[i] = 'd'
 	}
-	payload := fmt.Sprintf(djson, prefix+"1_stressdeviceid_1000", time.Now().UnixNano()/1e6, other)
+	payload := fmt.Sprintf(djson, prefix+"_stressdeviceid_1000", time.Now().UnixNano()/1e6, other)
 	payloadSize := len(payload)
 	fmt.Println("消息体大小（字节）：", payloadSize)
 	perCount, _ = strconv.Atoi(conf.Read("base", "perCount"))
+	createInterval, _ = strconv.Atoi(conf.Read("base", "createInterval"))
 	maxClient, _ = strconv.Atoi(conf.Read("base", "maxClient"))
 	pubTimes, _ = strconv.Atoi(conf.Read("base", "pubTimes"))
 	pubInterval, _ = strconv.Atoi(conf.Read("base", "pubInterval"))
@@ -135,31 +120,26 @@ func main() {
 	//off trace output and set the default message handler
 	fmt.Println("Begin ...")
 
-	clients = make(map[string]MQTT.Client, maxClient)
+	//clients = make(map[string]MQTT.Client, maxClient)
 	//states := make(map[string]chan bool)
-	ticker := time.NewTicker(1000 * time.Millisecond)
-	stime := time.Duration(1000000/perCount) * time.Microsecond
-	i := 1
 	start := time.Now()
-	fmt.Println(start)
-	for {
-		createClient(prefix+strconv.Itoa(i), stime)
-		if successClientNum >= maxClient {
-			finishClientTime = time.Now().Sub(start)
-			fmt.Printf("设备创建完成，用时：%v\n", finishClientTime)
-			break
-		}
-		i++
+	ticker := time.NewTicker(time.Duration(createInterval) * time.Millisecond)
+	for i := 0; i < maxClient; i++ {
 		<-ticker.C
+		wg.Add(1)
+		deviceId := prefix + "_stressDeviceId_" + strconv.Itoa(i)
+		fmt.Println(deviceId)
+		go createClient(deviceId)
 	}
 	ticker.Stop()
-	start = time.Now()
-	fmt.Println(start)
-	for k, v := range clients {
-		wg.Add(1)
-		//go publish(client, deviceId)
-		go publishInterval(v, k)
-	}
+	//wg.Wait()
+	finishClientTime = time.Now().Sub(start)
+	//fmt.Printf("设备创建完成，用时：%v\n", finishClientTime)
+	//start = time.Now()
+	//for k := range clients {
+	//	wg.Add(1)
+	//	go publishInterval(k)
+	//}
 	/*
 		ticker = time.NewTicker(100 * time.Millisecond)
 		for _, state := range states {
@@ -171,7 +151,6 @@ func main() {
 	go func(start time.Time) {
 		wg.Wait()
 		fmt.Println("All finish!")
-		fmt.Println(start)
 		totaltime = time.Now().Sub(start)
 	}(start)
 	sigChan := make(chan os.Signal)
@@ -179,31 +158,28 @@ func main() {
 	sig := <-sigChan
 	fmt.Println("Got signal:", sig)
 	fmt.Println("======================================================")
-	fmt.Println("successClientNum: ", successClientNum)
-	fmt.Println("failClientNum: ", failClientNum)
-	fmt.Println("pubClientNum: ", pubClientNum)
-	fmt.Println("successMsgNum: ", successMsgNum)
-	fmt.Println("failMsgNum: ", failMsgNum)
-	fmt.Println("每秒创建连接数: ", perCount)
-	fmt.Println("创建间隔: ", stime)
+	fmt.Println("成功客户端: ", successClientNum)
+	fmt.Println("失败客户端: ", failClientNum)
+	fmt.Println("已发消息客户端: ", pubClientNum)
+	fmt.Println("成功消息: ", successMsgNum)
+	fmt.Println("失败消息: ", failMsgNum)
 	fmt.Printf("创建设备用时:%v\n", finishClientTime)
 	fmt.Println("发送消息超时（秒）: ", msgTimeOut)
 	fmt.Println("发送消息间隔（毫秒）: ", pubInterval)
-	fmt.Println("每个连接发送消息次数: ", pubTimes)
+	fmt.Println("每个客户端发送消息次数: ", pubTimes)
 	fmt.Println("发送消息Qos: ", msgQos)
 	fmt.Println("消息体大小（字节）: ", payloadSize)
 	fmt.Println("断开连接数: ", lostNum)
-	fmt.Printf("执行总时间:%v\n", totaltime)
+	fmt.Printf("发送总时间:%v\n", totaltime)
 	fmt.Println("======================================================")
 
 	infoLog.Println("======================================================")
-	infoLog.Println("successClientNum: ", successClientNum)
-	infoLog.Println("failClientNum: ", failClientNum)
-	infoLog.Println("pubClientNum: ", pubClientNum)
-	infoLog.Println("successMsgNum: ", successMsgNum)
-	infoLog.Println("failMsgNum: ", failMsgNum)
+	infoLog.Println("成功客户端: ", successClientNum)
+	infoLog.Println("失败客户端: ", failClientNum)
+	infoLog.Println("已发消息客户端: ", pubClientNum)
+	infoLog.Println("成功消息: ", successMsgNum)
+	infoLog.Println("失败消息: ", failMsgNum)
 	infoLog.Println("每秒创建连接数: ", perCount)
-	infoLog.Println("创建间隔: ", stime)
 	infoLog.Printf("创建设备用时:%v\n", finishClientTime)
 	infoLog.Println("发送消息超时（秒）: ", msgTimeOut)
 	infoLog.Println("发送消息间隔（毫秒）: ", pubInterval)
@@ -211,7 +187,7 @@ func main() {
 	infoLog.Println("发送消息Qos: ", msgQos)
 	infoLog.Println("消息体大小（字节）: ", payloadSize)
 	infoLog.Println("断开连接数: ", lostNum)
-	infoLog.Printf("执行总时间:%v\n", totaltime)
+	infoLog.Printf("发送总时间:%v\n", totaltime)
 	infoLog.Println("======================================================")
 	logFile.Close()
 
@@ -224,41 +200,39 @@ func main() {
 	*/
 }
 
-func createClient(pre string, stime time.Duration) {
+func createClient(deviceId string) {
 	//create and start a client using the above ClientOptions
+	defer wg.Done()
 	opts := MQTT.NewClientOptions().AddBroker(server)
 	opts.SetDefaultPublishHandler(f)
 	opts.SetCleanSession(true)
 	opts.SetConnectionLostHandler(fonLost)
-	pre += "_stressDeviceId_"
-	for i := 0; i != perCount; i++ {
-		if successClientNum >= maxClient {
-			return
-		}
-		deviceId := pre + strconv.Itoa(i)
-		opts.SetClientID(deviceId)
-		client := MQTT.NewClient(opts)
-		token := client.Connect()
-		if token.Error() != nil {
-			fmt.Println(token.Error())
-			infoLog.Println(token.Error(), deviceId)
-			muFailClient.Lock()
-			failClientNum++
-			muFailClient.Unlock()
-			continue
-		}
-		if !token.WaitTimeout(30 * time.Second) {
-			fmt.Println("create client time out!")
-			infoLog.Println("create client time out!", deviceId)
-			muFailClient.Lock()
-			failClientNum++
-			muFailClient.Unlock()
-			continue
-		}
-		clients[deviceId] = client
-		successClientNum++
-		time.Sleep(stime)
+	opts.SetKeepAlive(300)
+	opts.SetClientID(deviceId)
+	client := MQTT.NewClient(opts)
+	token := client.Connect()
+	if token.Error() != nil {
+		fmt.Println(token.Error())
+		infoLog.Println(token.Error(), deviceId)
+		muFailClient.Lock()
+		failClientNum++
+		muFailClient.Unlock()
+		return
 	}
+	if !token.WaitTimeout(30 * time.Second) {
+		fmt.Println("create client time out!")
+		infoLog.Println("create client time out!", deviceId)
+		muFailClient.Lock()
+		failClientNum++
+		muFailClient.Unlock()
+		return
+	}
+	muSuccessClient.Lock()
+	successClientNum++
+	//clients[deviceId] = client
+	muSuccessClient.Unlock()
+	wg.Add(1)
+	go publishInterval(deviceId, client)
 }
 
 func publish(client MQTT.Client, deviceId string) {
@@ -288,7 +262,7 @@ func publish(client MQTT.Client, deviceId string) {
 	muSuccessMsg.Unlock()
 }
 
-func publishInterval(client MQTT.Client, deviceId string) {
+func publishInterval(deviceId string, client MQTT.Client) {
 	defer wg.Done()
 	//defer client.Disconnect(0)
 	muPub.Lock()
@@ -302,39 +276,34 @@ func publishInterval(client MQTT.Client, deviceId string) {
 			break
 		}
 		i++
-		<-ticker.C
 		payload := fmt.Sprintf(djson, deviceId, time.Now().UnixNano()/1e6, other)
 		token := client.Publish(topic, byte(msgQos), false, payload)
 		if token.Error() != nil {
 			fmt.Println(token.Error())
 			infoLog.Println(token.Error(), deviceId)
+			if client.IsConnected() {
+				fmt.Println("client connected 1")
+				infoLog.Println("client connected 1")
+			}
+			if client.IsConnectionOpen() {
+				fmt.Println("client connected 2")
+				infoLog.Println("client connected 2")
+			}
 			muFailMsg.Lock()
 			failMsgNum++
 			muFailMsg.Unlock()
-			continue
-		}
-		if !token.WaitTimeout(time.Duration(msgTimeOut) * time.Second) {
+		} else if !token.WaitTimeout(time.Duration(msgTimeOut) * time.Second) {
 			fmt.Println("publish msg time out!")
 			infoLog.Println("publish msg time out!", deviceId)
 			muFailMsg.Lock()
 			failMsgNum++
 			muFailMsg.Unlock()
-			continue
+		} else {
+			muSuccessMsg.Lock()
+			successMsgNum++
+			muSuccessMsg.Unlock()
 		}
-		muSuccessMsg.Lock()
-		successMsgNum++
-		muSuccessMsg.Unlock()
+		<-ticker.C
 	}
 	ticker.Stop()
-}
-
-func publishPM(deviceId string, state chan bool) {
-	for {
-		select {
-		case isOpen := <-state:
-			if isOpen {
-				//publishInterval(5, deviceId, state)
-			}
-		}
-	}
 }

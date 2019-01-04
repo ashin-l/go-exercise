@@ -5,17 +5,14 @@ import (
 	"log"
 	"os"
 	"os/signal" //import the Paho Go MQTT library
-	"strconv"
 	"time"
 
-	"github.com/ashin-l/go-exercise/conf"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	//"time"
 )
 
 var (
 	msgnum    int
-	totalnum  int
 	totaltime time.Duration
 	start     time.Time
 	infoLog   *log.Logger
@@ -28,10 +25,9 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 	}
 	msgnum++
 	fmt.Printf("TOPIC: %s, MSGNUM: %d\n", msg.Topic(), msgnum)
-	if msgnum >= totalnum {
+	if msgnum >= 600000 {
 		fmt.Println("Finish!")
 		totaltime = time.Now().Sub(start)
-		fmt.Println(start)
 		fmt.Println("接受消息总时间： ", totaltime)
 		infoLog.Println("接受消息总时间： ", totaltime)
 	}
@@ -45,27 +41,8 @@ var fonLost MQTT.ConnectionLostHandler = func(client MQTT.Client, err error) {
 }
 
 func main() {
-	conf := new(config.Config)
-	fileName := "logs/sub.log"
+	fileName := "logs/tsub.log"
 	logFile, err := os.Create(fileName)
-	conf.InitConfig("client.conf")
-	server := conf.Read("base", "server")
-	if server == "" {
-		fmt.Println("server 不能为空！")
-		os.Exit(1)
-	}
-	topic := conf.Read("base", "subtopic")
-	if topic == "" {
-		fmt.Println("subtopic 不能为空！")
-		os.Exit(1)
-	}
-	subid := conf.Read("base", "subid")
-	if subid == "" {
-		subid = "gosub"
-	}
-	maxClient, _ := strconv.Atoi(conf.Read("base", "maxClient"))
-	pubTimes, _ := strconv.Atoi(conf.Read("base", "pubTimes"))
-	totalnum = maxClient * pubTimes
 	defer logFile.Close()
 	if err != nil {
 		panic("open file error !")
@@ -75,10 +52,10 @@ func main() {
 	infoLog.Println("A info message here")
 	//create a ClientOptions struct setting the broker address, clientid, turn
 	//off trace output and set the default message handler
-	opts := MQTT.NewClientOptions().AddBroker(server)
-	opts.SetClientID(subid)
+	opts := MQTT.NewClientOptions().AddBroker("tcp://192.168.152.48:1886")
+	opts.SetClientID("go-simple")
 	opts.SetDefaultPublishHandler(f)
-	opts.SetCleanSession(true)
+	opts.SetCleanSession(false)
 	opts.SetConnectionLostHandler(fonLost)
 
 	//create and start a client using the above ClientOptions
@@ -90,8 +67,8 @@ func main() {
 
 	//subscribe to the topic /go-mqtt/sample and request messages to be delivered
 	//at a maximum qos of zero, wait for the receipt to confirm the subscription
-	//if token := c.Subscribe("carbon.super/test/aaa", 0, nil); token.Wait() && token.Error() != nil {
-	if token := c.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
+	if token := c.Subscribe("carbon.super/test/aaa", 0, nil); token.Wait() && token.Error() != nil {
+	//if token := c.Subscribe("carbon.super/stresstest/+/test", 0, nil); token.Wait() && token.Error() != nil {
 		fmt.Println(token.Error())
 		os.Exit(1)
 	}
