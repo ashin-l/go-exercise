@@ -90,7 +90,7 @@ func main() {
 		//payload := fmt.Sprintf(djson, deviceOwner, deviceId, deviceType, mtime, rand.Intn(40)+10, 55)
 		payload := fmt.Sprintf(djson, mtime, latitude, longitude)
 		//fmt.Println(payload)
-		token := c.Publish(topic, 0, true, payload)
+		token := c.Publish(topic, 0, false, payload)
 		token.Wait()
 		latitude += 0.03
 		longitude += 0.05

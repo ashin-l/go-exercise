@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +44,8 @@ func cmdHandler(msg MQTT.Message, states map[string][2]chan bool) {
 func opHandler(msg MQTT.Message, states map[string][2]chan bool) {
 	var data = make(map[string]interface{})
 	err := json.Unmarshal(msg.Payload(), &data)
+	tm := time.Unix(data["time"].(int64), 0)
+	infoLog.Printf(tm.Format("2006-01-02 03:04:05 PM"))
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +56,7 @@ func opHandler(msg MQTT.Message, states map[string][2]chan bool) {
 			fmt.Println("Open all devices!")
 			if v, ok := data["deviceIds"]; ok {
 				ids := v.([]interface{})
-				ticker := time.NewTicker(100 * time.Millisecond)
+				ticker := time.NewTicker(200 * time.Millisecond)
 				for _, id := range ids {
 					<-ticker.C
 					if v, ok := states[id.(string)]; ok {
@@ -115,8 +118,8 @@ const (
 )
 
 var (
-	infoLog *log.Logger
-	clients map[string]MQTT.Client
+	infoLog    *log.Logger
+	clientChan chan *MQTT.Client
 )
 
 func main() {
@@ -176,22 +179,15 @@ func main() {
 	opts.SetDefaultPublishHandler(f)
 	opts.SetCleanSession(true)
 
-	clients = make(map[string]MQTT.Client)
+	clientChan = creatClientPool(opts)
 	states := make(map[string][2]chan bool)
 	for _, deviceId := range dids {
-		opts.SetClientID("admin:EnvMonitor:" + deviceId)
-		client := MQTT.NewClient(opts)
-		if token := client.Connect(); token.Wait() && token.Error() != nil {
-			fmt.Println(token.Error())
-			panic(token.Error())
-		}
-		clients[deviceId] = client
 		states[deviceId] = [2]chan bool{make(chan bool), make(chan bool)}
 		go publishPM(deviceId, states[deviceId][0])
 		go publishHumidity(deviceId, states[deviceId][1])
 	}
 	count := 0
-	ticker := time.NewTicker(100 * time.Millisecond)
+	ticker := time.NewTicker(200 * time.Millisecond)
 	for id, state := range states {
 		<-ticker.C
 		count++
@@ -233,6 +229,30 @@ func main() {
 	sclient.Disconnect(250)
 }
 
+func creatClientPool(opts *MQTT.ClientOptions) chan *MQTT.Client {
+	fmt.Println("Create client pool.")
+	out := make(chan *MQTT.Client)
+	var clients []*MQTT.Client
+	for i := 0; i != 1000; i++ {
+		opts.SetClientID("admin:EnvMonitor:" + strconv.Itoa(i))
+		client := MQTT.NewClient(opts)
+		if token := client.Connect(); token.Wait() && token.Error() != nil {
+			fmt.Println(token.Error())
+			panic(token.Error())
+		}
+		clients = append(clients, &client)
+	}
+	fmt.Println("Create client pool finish.")
+	go func() {
+		for {
+			for _, c := range clients {
+				out <- c
+			}
+		}
+	}()
+	return out
+}
+
 func publish(interval int, deviceId string, sensortype string, state chan bool) {
 	topic := "carbon.super/envmonitor/" + deviceId + "/sensorval"
 	mtime := time.Now().UnixNano() / 1e6
@@ -250,7 +270,8 @@ func publish(interval int, deviceId string, sensortype string, state chan bool) 
 			}
 			payload := fmt.Sprintf(djson, deviceOwner, deviceId, sensortype, mtime, pmval, hmval)
 			//infoLog.Printf("PMSensor: DeviceId: %s, time: %d\n", deviceId, mtime)
-			_ = clients[deviceId].Publish(topic, 1, false, payload)
+			client := <-clientChan
+			_ = (*client).Publish(topic, 1, false, payload)
 			//token := client.Publish(topic, 1, false, payload)
 			//token.Wait()
 		case isOpen := <-state:

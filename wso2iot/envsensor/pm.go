@@ -45,6 +45,10 @@ func main() {
 	//topic := "carbon.super/envmonitor/" + deviceId
 	//topic := "carbon.super/EnvMonitor/" + deviceId + "/command"
 	topic := "carbon.super/envmonitor/" + deviceId + "/sensorval"
+	if token := c.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
+		fmt.Println(token.Error())
+		os.Exit(1)
+	}
 
 	djson := `{
 	               "event": {
@@ -56,27 +60,22 @@ func main() {
 	                   },
 	                   "payloadData": {
 	                       "pmsensor": %d,
-	                       "humiditysensor": %d
+						   "humiditysensor": %d,
+						   "other": "%s"
 	                   }
 	               }
 	           }`
 	ticker := time.NewTicker(5 * time.Second)
 	rand.Seed(37)
-	mtime := time.Now().UnixNano() / 1e6
 	for _ = range ticker.C {
-		mtime += 5000
-		payload := fmt.Sprintf(djson, deviceOwner, deviceId, deviceType, mtime, rand.Intn(40)+10, 55)
+		payload := fmt.Sprintf(djson, deviceOwner, deviceId, deviceType, time.Now().UnixNano()/1e6, rand.Intn(40)+10, 55, "aaaa")
 		//fmt.Println(payload)
-		token := c.Publish(topic, 0, true, payload)
+		token := c.Publish(topic, 1, false, payload)
 		token.Wait()
-	}
-
-	if token := c.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
-		fmt.Println(token.Error())
-		os.Exit(1)
 	}
 
 	var cn chan struct{}
 	<-cn
 	c.Disconnect(250)
 }
+time.Now().Format("2006-01-02 15:04:05.000")
