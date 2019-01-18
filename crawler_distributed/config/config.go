@@ -1,7 +1,14 @@
 package config
 
 const (
-	ItemSaverPort = 1234
-	ElasticIndex  = "dating_profile"
-	ItemSaverRpc  = "ItemSaverService.Save"
+	ElasticIndex    = "dating_profile"
+	ItemSaverRpc    = "ItemSaverService.Save"
+	CrawlServiceRpc = "CrawlService.Process"
+
+	ParseCity     = "ParseCity"
+	ParseCityList = "ParseCityList"
+	ParseProfile  = "ParseProfile"
+	NilParser     = "NilParser"
+
+	Qps = 20
 )

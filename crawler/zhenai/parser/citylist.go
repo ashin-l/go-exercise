@@ -3,6 +3,8 @@ package parser
 import (
 	"regexp"
 
+	"github.com/ashin-l/go-exercise/crawler_distributed/config"
+
 	"github.com/ashin-l/go-exercise/crawler/engine"
 )
 
@@ -15,7 +17,7 @@ func ParseCityList(contents []byte, _ string) engine.ParseResult {
 	for _, m := range matches {
 		result.Requests = append(result.Requests, engine.Request{
 			Url:    string(m[1]),
-			Parser: engine.NewFuncParser(ParseCity, "ParseCity"),
+			Parser: engine.NewFuncParser(ParseCity, config.ParseCity),
 		})
 	}
 	return result

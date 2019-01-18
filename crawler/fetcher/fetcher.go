@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ashin-l/go-exercise/crawler_distributed/config"
 	"golang.org/x/text/encoding/unicode"
 
 	"golang.org/x/net/html/charset"
@@ -25,7 +26,7 @@ func determineEncoding(r *bufio.Reader) encoding.Encoding {
 	return e
 }
 
-var rateLimiter = time.Tick(100 * time.Microsecond)
+var rateLimiter = time.Tick(time.Second / config.Qps)
 
 func Fetch(url string) ([]byte, error) {
 	<-rateLimiter
