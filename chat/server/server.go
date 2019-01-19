@@ -5,7 +5,7 @@ import (
 	"net"
 )
 
-func rumServer(addr string) (err error) {
+func runServer(addr string) (err error) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		fmt.Println("listen failed!")
@@ -25,4 +25,11 @@ func rumServer(addr string) (err error) {
 func process(conn net.Conn) {
 	defer conn.Close()
 	fmt.Println("connect")
+	parse := &Parse{
+		conn: conn,
+	}
+	err := parse.Process()
+	if err != nil {
+		fmt.Println("parse process failed, ", err)
+	}
 }

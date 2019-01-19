@@ -53,7 +53,7 @@ func (m *UserMgr) Login(nickname, password string) (user *User, err error) {
 		return
 	}
 	user.Status = UserStatusOnline
-	user.Lastlogintime = time.Now()
+	user.Lastlogintime = fmt.Sprintf("%v", time.Now())
 	return
 }
 
@@ -83,4 +83,10 @@ func (m *UserMgr) Register(user *User) (err error) {
 
 	_, err = conn.Do("hset", UsreTable, user.NickName, string(data))
 	return
+}
+
+func (m *UserMgr) Update(user *User) error {
+	data, _ := json.Marshal(user)
+	_, err := m.pool.Get().Do("hset", UsreTable, user.NickName, data)
+	return err
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/ashin-l/go-exercise/chat/models"
 	"github.com/ashin-l/go-exercise/chat/proto"
 )
 
@@ -24,7 +25,7 @@ func (p *Parse) readPackage() (msg proto.Message, err error) {
 
 	var packlen uint32
 	packlen = binary.BigEndian.Uint32(p.buf[0:4])
-	fmt.Println("receive len:%d", packlen)
+	fmt.Printf("receive len:%d\n", packlen)
 	n, err = p.conn.Read(p.buf[:packlen])
 	if n != int(packlen) {
 		err = errors.New("read body failed")
@@ -80,11 +81,10 @@ func (p *Parse) Process() (err error) {
 }
 
 func (p *Parse) processMsg(msg proto.Message) (err error) {
-
 	switch msg.Cmd {
-	case UserLogin:
+	case proto.UserLogin:
 		err = p.login(msg)
-	case UserRegister:
+	case proto.UserRegister:
 		err = p.register(msg)
 	default:
 		err = errors.New("unsupport message")
@@ -93,11 +93,11 @@ func (p *Parse) processMsg(msg proto.Message) (err error) {
 	return
 }
 
-func (p *Parse) loginResp(err error) {
-	var respMsg Message
-	respMsg.Cmd = UserLoginRes
+func (p *Parse) loginResp(user *models.User, err error) {
+	var respMsg proto.Message
+	respMsg.Cmd = proto.UserLoginRes
 
-	var loginRes LoginCmdRes
+	var loginRes proto.LoginCmdRes
 	loginRes.Code = 200
 
 	if err != nil {
@@ -122,30 +122,28 @@ func (p *Parse) loginResp(err error) {
 		fmt.Println("send failed, ", err)
 		return
 	}
+	mgr.Update(user)
 }
 
-func (p *Parse) login(msg Message) (err error) {
+func (p *Parse) login(msg proto.Message) (err error) {
+	var user *models.User
 	defer func() {
-		p.loginResp(err)
+		p.loginResp(user, err)
 	}()
 
-	fmt.Printf("recv user login request, data:%v", msg)
-	var cmd LoginCmd
+	fmt.Printf("recv user login request, data:%v\n", msg)
+	var cmd proto.LoginCmd
 	err = json.Unmarshal([]byte(msg.Data), &cmd)
 	if err != nil {
 		return
 	}
 
-	_, err = mgr.Login(cmd.Id, cmd.Passwd)
-	if err != nil {
-		return
-	}
-
+	user, err = mgr.Login(cmd.Nickname, cmd.Password)
 	return
 }
 
-func (p *Parse) register(msg Message) (err error) {
-	var cmd RegisterCmd
+func (p *Parse) register(msg proto.Message) (err error) {
+	var cmd proto.RegisterCmd
 	err = json.Unmarshal([]byte(msg.Data), &cmd)
 	if err != nil {
 		return
