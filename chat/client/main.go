@@ -41,11 +41,11 @@ func login(conn net.Conn) (err error) {
 	var msg proto.Message
 	msg.Cmd = proto.UserLogin
 
-	var loginCmd proto.LoginCmd
-	loginCmd.Nickname = "ashin"
-	loginCmd.Password = "123456789"
+	var loginData proto.LoginData
+	loginData.Id = 1
+	loginData.Password = "123456"
 
-	data, err := json.Marshal(loginCmd)
+	data, err := json.Marshal(loginData)
 	if err != nil {
 		return
 	}

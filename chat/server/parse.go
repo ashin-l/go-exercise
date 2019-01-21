@@ -103,6 +103,7 @@ func (p *Parse) loginResp(user *models.User, err error) {
 	if err != nil {
 		loginRes.Code = 500
 		loginRes.Error = fmt.Sprintf("%v", err)
+		return
 	}
 
 	data, err := json.Marshal(loginRes)
@@ -132,13 +133,13 @@ func (p *Parse) login(msg proto.Message) (err error) {
 	}()
 
 	fmt.Printf("recv user login request, data:%v\n", msg)
-	var cmd proto.LoginCmd
-	err = json.Unmarshal([]byte(msg.Data), &cmd)
+	var data proto.LoginData
+	err = json.Unmarshal([]byte(msg.Data), &data)
 	if err != nil {
 		return
 	}
 
-	user, err = mgr.Login(cmd.Nickname, cmd.Password)
+	user, err = mgr.Login(data.Id, data.Password)
 	return
 }
 

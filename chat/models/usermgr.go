@@ -23,8 +23,8 @@ func NewUserMgr(pool *redis.Pool) (mgr *UserMgr) {
 	return
 }
 
-func (m *UserMgr) GetUser(conn redis.Conn, nickname string) (user *User, err error) {
-	result, err := redis.String(conn.Do("hget", UsreTable, nickname))
+func (m *UserMgr) GetUser(conn redis.Conn, id int) (user *User, err error) {
+	result, err := redis.StringMap(conn.Do("hget", UsreTable, id))
 	if err != nil {
 		if err == redis.ErrNil {
 			err = ErrUserNotExist
@@ -32,23 +32,27 @@ func (m *UserMgr) GetUser(conn redis.Conn, nickname string) (user *User, err err
 		return
 	}
 
-	user = &User{}
-	err = json.Unmarshal([]byte(result), user)
-	if err != nil {
-		return
+	user = &User{
+		Id:            id,
+		NickName:      result["nickname"],
+		Password:      result["password"],
+		Sex:           result["sex"],
+		ImgUri:        result["imguri"],
+		Lastlogintime: result["lastlogintime"],
+		Createtime:    result["createtime"],
 	}
 	return
 }
 
-func (m *UserMgr) Login(nickname, password string) (user *User, err error) {
+func (m *UserMgr) Login(id int, password string) (user *User, err error) {
 	conn := m.pool.Get()
 	defer conn.Close()
-	user, err = m.GetUser(conn, nickname)
+	user, err = m.GetUser(conn, id)
 	if err != nil {
 		return
 	}
 
-	if user.NickName != nickname || user.Password != password {
+	if user.Password != password {
 		err = ErrInvalidPasswd
 		return
 	}
@@ -66,22 +70,34 @@ func (m *UserMgr) Register(user *User) (err error) {
 		return
 	}
 
-	_, err = m.GetUser(conn, user.NickName)
-	if err == nil {
-		err = ErrUserExist
-		return
-	}
-
-	if err != ErrUserNotExist {
-		return
-	}
-
-	data, err := json.Marshal(user)
+	result, err := redis.Int(conn.Do("sismember", "nickname", user.NickName))
 	if err != nil {
 		return
 	}
+	if result == 1 {
+		err = ErrNicknameExist
+		return
+	}
 
-	_, err = conn.Do("hset", UsreTable, user.NickName, string(data))
+	conn.Do("sadd", "nickname", user.NickName)
+	id, err := redis.Int(conn.Do("incr", "userid"))
+	conn.Send("multi")
+	user.Id = id
+	fmt.Println("userid: ", id)
+	err = conn.Send("hset", UsreTable, id,
+		"id", user.Id,
+		"nickname", user.NickName,
+		"password", user.Password,
+		"sex", user.Sex,
+		"imguri", user.ImgUri,
+		"createtime", user.Createtime,
+		"status", UserStatusOffline)
+	if err != nil {
+		conn.Do("discard")
+		conn.Do("srem", "nickname", user.NickName)
+	} else {
+		_, err = conn.Do("exec")
+	}
 	return
 }
 

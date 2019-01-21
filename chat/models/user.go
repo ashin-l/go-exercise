@@ -6,6 +6,7 @@ const (
 )
 
 type User struct {
+	Id            int    `json:id`
 	NickName      string `json:"nickname"`
 	Password      string `json:"password"`
 	Repassword    string `json:"repassword"`

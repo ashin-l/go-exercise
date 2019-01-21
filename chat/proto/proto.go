@@ -15,8 +15,8 @@ type Message struct {
 	Data string `json:"data"`
 }
 
-type LoginCmd struct {
-	Nickname string `json:"nickname"`
+type LoginData struct {
+	Id       int    `json:"id"`
 	Password string `json:"password"`
 }
 
