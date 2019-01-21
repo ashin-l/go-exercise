@@ -1,4 +1,4 @@
-package models
+package common
 
 const (
 	UserStatusOnline  = 1
@@ -9,7 +9,6 @@ type User struct {
 	Id            int    `json:id`
 	NickName      string `json:"nickname"`
 	Password      string `json:"password"`
-	Repassword    string `json:"repassword"`
 	Sex           string `json:"sex"`
 	ImgUri        string `json:"imguri"`
 	Lastlogintime string `json:"lastlogintime`

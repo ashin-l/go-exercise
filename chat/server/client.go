@@ -7,16 +7,17 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/ashin-l/go-exercise/chat/models"
+	"github.com/ashin-l/go-exercise/chat/common"
+
 	"github.com/ashin-l/go-exercise/chat/proto"
 )
 
-type Parse struct {
+type Client struct {
 	conn net.Conn
 	buf  [8192]byte
 }
 
-func (p *Parse) readPackage() (msg proto.Message, err error) {
+func (p *Client) readPackage() (msg proto.Message, err error) {
 	n, err := p.conn.Read(p.buf[0:4])
 	if n != 4 {
 		err = errors.New("read header failed!")
@@ -40,7 +41,7 @@ func (p *Parse) readPackage() (msg proto.Message, err error) {
 	return
 }
 
-func (p *Parse) writePackage(data []byte) (err error) {
+func (p *Client) writePackage(data []byte) (err error) {
 	packlen := uint32(len(data))
 
 	binary.BigEndian.PutUint32(p.buf[0:4], packlen)
@@ -65,24 +66,25 @@ func (p *Parse) writePackage(data []byte) (err error) {
 	return
 }
 
-func (p *Parse) Process() (err error) {
+func (p *Client) Process() (err error) {
 	for {
 		var msg proto.Message
-		msg, err = p.readPackage()
+		msg, err = proto.ReadMessage(p.conn)
 		if err != nil {
 			return err
 		}
 
 		err = p.processMsg(msg)
 		if err != nil {
-			return
+			fmt.Println("error: ", err)
+			continue
 		}
 	}
 }
 
-func (p *Parse) processMsg(msg proto.Message) (err error) {
+func (p *Client) processMsg(msg proto.Message) (err error) {
 	switch msg.Cmd {
-	case proto.UserLogin:
+	case proto.UserLoginReq:
 		err = p.login(msg)
 	case proto.UserRegister:
 		err = p.register(msg)
@@ -93,11 +95,11 @@ func (p *Parse) processMsg(msg proto.Message) (err error) {
 	return
 }
 
-func (p *Parse) loginResp(user *models.User, err error) {
+func (p *Client) loginResp(user *common.User, err error) {
 	var respMsg proto.Message
 	respMsg.Cmd = proto.UserLoginRes
 
-	var loginRes proto.LoginCmdRes
+	var loginRes proto.LoginResData
 	loginRes.Code = 200
 
 	if err != nil {
@@ -123,34 +125,34 @@ func (p *Parse) loginResp(user *models.User, err error) {
 		fmt.Println("send failed, ", err)
 		return
 	}
-	mgr.Update(user)
+	usermgr.Update(user)
 }
 
-func (p *Parse) login(msg proto.Message) (err error) {
-	var user *models.User
+func (p *Client) login(msg proto.Message) (err error) {
+	var user *common.User
 	defer func() {
 		p.loginResp(user, err)
 	}()
 
 	fmt.Printf("recv user login request, data:%v\n", msg)
-	var data proto.LoginData
+	var data proto.LoginReqData
 	err = json.Unmarshal([]byte(msg.Data), &data)
 	if err != nil {
 		return
 	}
 
-	user, err = mgr.Login(data.Id, data.Password)
+	user, err = usermgr.Login(data.Id, data.Password)
 	return
 }
 
-func (p *Parse) register(msg proto.Message) (err error) {
+func (p *Client) register(msg proto.Message) (err error) {
 	var cmd proto.RegisterCmd
 	err = json.Unmarshal([]byte(msg.Data), &cmd)
 	if err != nil {
 		return
 	}
 
-	err = mgr.Register(&cmd.User)
+	err = usermgr.Register(&cmd.User)
 	if err != nil {
 		return
 	}

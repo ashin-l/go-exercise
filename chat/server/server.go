@@ -25,10 +25,10 @@ func runServer(addr string) (err error) {
 func process(conn net.Conn) {
 	defer conn.Close()
 	fmt.Println("connect")
-	parse := &Parse{
+	c := &Client{
 		conn: conn,
 	}
-	err := parse.Process()
+	err := c.Process()
 	if err != nil {
 		fmt.Println("parse process failed, ", err)
 	}

@@ -3,13 +3,16 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
+
+	"github.com/ashin-l/go-exercise/chat/common"
 
 	"github.com/gomodule/redigo/redis"
 )
 
 const (
-	UsreTable = "user"
+	UsreTable = "user:"
 )
 
 type UserMgr struct {
@@ -23,8 +26,9 @@ func NewUserMgr(pool *redis.Pool) (mgr *UserMgr) {
 	return
 }
 
-func (m *UserMgr) GetUser(conn redis.Conn, id int) (user *User, err error) {
-	result, err := redis.StringMap(conn.Do("hget", UsreTable, id))
+func (m *UserMgr) GetUser(conn redis.Conn, id int) (user *common.User, err error) {
+	key := UsreTable + strconv.Itoa(id)
+	result, err := redis.StringMap(conn.Do("hgetall", key))
 	if err != nil {
 		if err == redis.ErrNil {
 			err = ErrUserNotExist
@@ -32,7 +36,7 @@ func (m *UserMgr) GetUser(conn redis.Conn, id int) (user *User, err error) {
 		return
 	}
 
-	user = &User{
+	user = &common.User{
 		Id:            id,
 		NickName:      result["nickname"],
 		Password:      result["password"],
@@ -44,7 +48,7 @@ func (m *UserMgr) GetUser(conn redis.Conn, id int) (user *User, err error) {
 	return
 }
 
-func (m *UserMgr) Login(id int, password string) (user *User, err error) {
+func (m *UserMgr) Login(id int, password string) (user *common.User, err error) {
 	conn := m.pool.Get()
 	defer conn.Close()
 	user, err = m.GetUser(conn, id)
@@ -56,12 +60,12 @@ func (m *UserMgr) Login(id int, password string) (user *User, err error) {
 		err = ErrInvalidPasswd
 		return
 	}
-	user.Status = UserStatusOnline
+	user.Status = common.UserStatusOnline
 	user.Lastlogintime = fmt.Sprintf("%v", time.Now())
 	return
 }
 
-func (m *UserMgr) Register(user *User) (err error) {
+func (m *UserMgr) Register(user *common.User) (err error) {
 	conn := m.pool.Get()
 	defer conn.Close()
 	if user == nil {
@@ -91,7 +95,7 @@ func (m *UserMgr) Register(user *User) (err error) {
 		"sex", user.Sex,
 		"imguri", user.ImgUri,
 		"createtime", user.Createtime,
-		"status", UserStatusOffline)
+		"status", common.UserStatusOffline)
 	if err != nil {
 		conn.Do("discard")
 		conn.Do("srem", "nickname", user.NickName)
@@ -101,7 +105,7 @@ func (m *UserMgr) Register(user *User) (err error) {
 	return
 }
 
-func (m *UserMgr) Update(user *User) error {
+func (m *UserMgr) Update(user *common.User) error {
 	data, _ := json.Marshal(user)
 	_, err := m.pool.Get().Do("hset", UsreTable, user.NickName, data)
 	return err

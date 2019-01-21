@@ -1,11 +1,11 @@
 package proto
 
 import (
-	"github.com/ashin-l/go-exercise/chat/models"
+	"github.com/ashin-l/go-exercise/chat/common"
 )
 
 const (
-	UserLogin    = "UserLogin"
+	UserLoginReq = "UserLoginReq"
 	UserLoginRes = "UserLoginRes"
 	UserRegister = "UserRegister"
 )
@@ -15,16 +15,17 @@ type Message struct {
 	Data string `json:"data"`
 }
 
-type LoginData struct {
+type LoginReqData struct {
 	Id       int    `json:"id"`
 	Password string `json:"password"`
 }
 
-type RegisterCmd struct {
-	User models.User `json:"user"`
+type LoginResData struct {
+	Code  int           `json:"code"`
+	Error string        `json:"error"`
+	Users []common.User `json:"users"`
 }
 
-type LoginCmdRes struct {
-	Code  int    `json:"code"`
-	Error string `json:"error"`
+type RegisterCmd struct {
+	common.User `json:"user"`
 }

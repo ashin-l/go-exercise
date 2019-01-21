@@ -2,3 +2,4 @@
 .DS_Store
 *.log
 /wso2iot/envsensor/mqttex.go
+/chat/conf/*.conf
