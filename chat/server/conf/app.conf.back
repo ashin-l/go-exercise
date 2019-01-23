@@ -1,4 +1,4 @@
-dbhost = 140.143.223.156
+dbhost = 127.0.0.1
 dbport = 6379
 dbid = 1
-dbpasswd = Tallqc612$
+dbpasswd = 

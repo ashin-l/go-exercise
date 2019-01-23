@@ -10,6 +10,7 @@ const (
 	UserRegisterReq  = "UserRegisterReq"
 	UserRegisterRes  = "UserRegisterRes"
 	NotifyUserStatus = "NotifyUserStatus"
+	SendMessage      = "SendMessage"
 )
 
 type Message struct {
@@ -41,4 +42,9 @@ type RegisterResData struct {
 type NotifyUserStatusData struct {
 	User   common.User `json:"user"`
 	Status int         `json:"status"`
+}
+
+type SendMessageData struct {
+	UserInfo common.UserInfo `json:"userinfo"`
+	Content  string          `json:"content"`
 }

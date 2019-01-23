@@ -23,6 +23,8 @@ func processMessage() {
 			registerResp(msg.Data)
 		case proto.NotifyUserStatus:
 			updateOnlineUsers(msg.Data)
+		case proto.SendMessage:
+			saveMessage(msg.Data)
 		}
 	}
 }
@@ -83,5 +85,20 @@ func updateOnlineUsers(data string) {
 		delete(onlineUser, nfdata.User.Id)
 	} else {
 		onlineUser[nfdata.User.Id] = &nfdata.User
+	}
+}
+
+func saveMessage(data string) {
+	var msgData proto.SendMessageData
+	err := json.Unmarshal([]byte(data), &msgData)
+	if err != nil {
+		fmt.Println("unmarshal msgdata error: ", err)
+		return
+	}
+	if len(msgchan) < 1024 {
+		msgchan <- msgData
+	} else {
+		<-msgchan
+		msgchan <- msgData
 	}
 }

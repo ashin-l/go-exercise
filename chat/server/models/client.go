@@ -46,6 +46,8 @@ func (p *Client) processMsg(msg proto.Message) (err error) {
 		err = p.login(msg)
 	case proto.UserRegisterReq:
 		err = p.register(msg)
+	case proto.SendMessage:
+		err = p.sendMessage(msg)
 	default:
 		err = errors.New("unsupport message")
 		return
@@ -115,6 +117,28 @@ func (p *Client) register(msg proto.Message) (err error) {
 	}
 
 	return
+}
+
+func (p *Client) sendMessage(msg proto.Message) error {
+	if msg.Data == "" {
+		return errors.New("nil message!")
+	}
+	userinfo := common.UserInfo{
+		Id:       p.user.Id,
+		NickName: p.user.NickName,
+	}
+	data := proto.SendMessageData{
+		UserInfo: userinfo,
+		Content:  msg.Data,
+	}
+	onlineusers := clientmgr.GetAllUsers()
+	for k, v := range onlineusers {
+		if k == p.user.Id {
+			continue
+		}
+		go proto.WriteMessage(proto.SendMessage, data, v.conn)
+	}
+	return nil
 }
 
 func setOnlineUsers(id int, users *[]common.User) {

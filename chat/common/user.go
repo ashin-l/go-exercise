@@ -14,3 +14,8 @@ type User struct {
 	Lastlogintime string `json:"lastlogintime`
 	Createtime    string `json:"createtime`
 }
+
+type UserInfo struct {
+	Id       int    `json:id`
+	NickName string `json:"nickname"`
+}

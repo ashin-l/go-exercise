@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/ashin-l/go-exercise/chat/proto"
+
 	"github.com/ashin-l/go-exercise/chat/common"
 )
 
@@ -11,10 +13,12 @@ var (
 	conn       net.Conn
 	self       common.User
 	onlineUser map[int]*common.User
+	msgchan    chan proto.SendMessageData
 )
 
 func init() {
 	onlineUser = make(map[int]*common.User)
+	msgchan = make(chan proto.SendMessageData, 1024)
 }
 
 func main() {
