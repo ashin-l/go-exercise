@@ -5,9 +5,11 @@ import (
 )
 
 const (
-	UserLoginReq = "UserLoginReq"
-	UserLoginRes = "UserLoginRes"
-	UserRegister = "UserRegister"
+	UserLoginReq     = "UserLoginReq"
+	UserLoginRes     = "UserLoginRes"
+	UserRegisterReq  = "UserRegisterReq"
+	UserRegisterRes  = "UserRegisterRes"
+	NotifyUserStatus = "NotifyUserStatus"
 )
 
 type Message struct {
@@ -26,6 +28,17 @@ type LoginResData struct {
 	Users []common.User `json:"users"`
 }
 
-type RegisterCmd struct {
-	common.User `json:"user"`
+type RegisterReqData struct {
+	User common.User `json:"user"`
+}
+
+type RegisterResData struct {
+	Id    int           `json:"id"`
+	Error string        `json:"error"`
+	Users []common.User `json:"users"`
+}
+
+type NotifyUserStatusData struct {
+	User   common.User `json:"user"`
+	Status int         `json:"status"`
 }

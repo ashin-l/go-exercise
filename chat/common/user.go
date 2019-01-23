@@ -1,8 +1,8 @@
 package common
 
 const (
-	UserStatusOnline  = 1
-	UserStatusOffline = iota
+	UserStatusOnline = iota
+	UserStatusOffline
 )
 
 type User struct {
@@ -13,5 +13,4 @@ type User struct {
 	ImgUri        string `json:"imguri"`
 	Lastlogintime string `json:"lastlogintime`
 	Createtime    string `json:"createtime`
-	Status        int    `json:"status"`
 }

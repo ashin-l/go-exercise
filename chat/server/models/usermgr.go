@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ashin-l/go-exercise/chat/common"
-
 	"github.com/gomodule/redigo/redis"
 )
 
@@ -60,7 +59,6 @@ func (m *UserMgr) Login(id int, password string) (user *common.User, err error) 
 		err = ErrInvalidPasswd
 		return
 	}
-	user.Status = common.UserStatusOnline
 	user.Lastlogintime = fmt.Sprintf("%v", time.Now())
 	return
 }
@@ -85,22 +83,19 @@ func (m *UserMgr) Register(user *common.User) (err error) {
 
 	conn.Do("sadd", "nickname", user.NickName)
 	id, err := redis.Int(conn.Do("incr", "userid"))
-	conn.Send("multi")
+	key := UsreTable + strconv.Itoa(id)
 	user.Id = id
-	fmt.Println("userid: ", id)
-	err = conn.Send("hset", UsreTable, id,
+	_, err = conn.Do("hmset", key,
 		"id", user.Id,
 		"nickname", user.NickName,
 		"password", user.Password,
 		"sex", user.Sex,
 		"imguri", user.ImgUri,
-		"createtime", user.Createtime,
+		"createtime", fmt.Sprintf("%v", time.Now()),
 		"status", common.UserStatusOffline)
 	if err != nil {
-		conn.Do("discard")
 		conn.Do("srem", "nickname", user.NickName)
-	} else {
-		_, err = conn.Do("exec")
+		conn.Do("decr", "userid")
 	}
 	return
 }

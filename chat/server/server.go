@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net"
+
+	"github.com/ashin-l/go-exercise/chat/server/models"
 )
 
 func runServer(addr string) (err error) {
@@ -24,10 +26,7 @@ func runServer(addr string) (err error) {
 
 func process(conn net.Conn) {
 	defer conn.Close()
-	fmt.Println("connect")
-	c := &Client{
-		conn: conn,
-	}
+	c := models.NewClient(conn)
 	err := c.Process()
 	if err != nil {
 		fmt.Println("parse process failed, ", err)
