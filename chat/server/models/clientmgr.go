@@ -1,32 +1,36 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 type ClientMgr struct {
-	onlineUsers map[int]*Client
+	onlineUsers sync.Map
 }
 
 func NewClientMgr() *ClientMgr {
-	return &ClientMgr{make(map[int]*Client)}
+	return new(ClientMgr)
 }
 
 func (m *ClientMgr) AddClient(id int, client *Client) {
-	m.onlineUsers[id] = client
+	m.onlineUsers.Store(id, client)
 }
 
 func (m *ClientMgr) GetClient(id int) (client *Client, err error) {
-	client, ok := m.onlineUsers[id]
+	v, ok := m.onlineUsers.Load(id)
 	if !ok {
 		err = fmt.Errorf("user %d not online!", id)
 		return
 	}
+	client = v.(*Client)
 	return
 }
 
 func (m *ClientMgr) DelClient(id int) {
-	delete(m.onlineUsers, id)
+	m.onlineUsers.Delete(id)
 }
 
-func (m *ClientMgr) GetAllUsers() map[int]*Client {
-	return m.onlineUsers
-}
+//func (m *ClientMgr) GetAllUsers() map[int]*Client {
+//	return m.onlineUsers
+//}

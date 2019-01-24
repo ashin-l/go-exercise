@@ -131,35 +131,35 @@ func (p *Client) sendMessage(msg proto.Message) error {
 		UserInfo: userinfo,
 		Content:  msg.Data,
 	}
-	onlineusers := clientmgr.GetAllUsers()
-	for k, v := range onlineusers {
-		if k == p.user.Id {
-			continue
+	var f = func(k, v interface{}) bool {
+		if k != p.user.Id {
+			go proto.WriteMessage(proto.SendMessage, data, v.(*Client).conn)
 		}
-		go proto.WriteMessage(proto.SendMessage, data, v.conn)
+		return true
 	}
+	clientmgr.onlineUsers.Range(f)
 	return nil
 }
 
 func setOnlineUsers(id int, users *[]common.User) {
-	onlineusers := clientmgr.GetAllUsers()
-	for k, _ := range onlineusers {
-		if k == id {
-			continue
+	var f = func(k, v interface{}) bool {
+		if k != id {
+			*users = append(*users, v.(*Client).user)
 		}
-		*users = append(*users, onlineusers[k].user)
+		return true
 	}
+	clientmgr.onlineUsers.Range(f)
 }
 
 func notifyUserStatus(user common.User, status int) {
 	var data proto.NotifyUserStatusData
 	data.Status = status
 	data.User = user
-	onlineusers := clientmgr.GetAllUsers()
-	for k, v := range onlineusers {
-		if k == user.Id {
-			continue
+	var f = func(k, v interface{}) bool {
+		if k != user.Id {
+			go proto.WriteMessage(proto.NotifyUserStatus, data, v.(*Client).conn)
 		}
-		go proto.WriteMessage(proto.NotifyUserStatus, data, v.conn)
+		return true
 	}
+	clientmgr.onlineUsers.Range(f)
 }
