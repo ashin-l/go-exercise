@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Shopify/sarama"
 )
@@ -18,10 +19,13 @@ func main() {
 	}()
 
 	msg := &sarama.ProducerMessage{Topic: "my_topic", Value: sarama.StringEncoder("testing 123")}
-	partition, offset, err := producer.SendMessage(msg)
-	if err != nil {
-		fmt.Println("failed to send message: ", err)
-	} else {
-		fmt.Printf("message sent to partition %d at offset %d\n", partition, offset)
+	for {
+		partition, offset, err := producer.SendMessage(msg)
+		if err != nil {
+			fmt.Println("failed to send message: ", err)
+		} else {
+			fmt.Printf("message sent to partition %d at offset %d\n", partition, offset)
+		}
+		time.Sleep(1500 * time.Millisecond)
 	}
 }
