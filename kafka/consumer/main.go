@@ -9,7 +9,9 @@ import (
 )
 
 func main() {
-	consumer, err := sarama.NewConsumer([]string{"localhost:9092"}, nil)
+	addrs := []string{"192.168.152.48:9092", "192.168.152.48:9093", "192.168.152.48:9094"}
+	//addrs := []string{"192.168.152.48:9092"}
+	consumer, err := sarama.NewConsumer(addrs, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -19,7 +21,7 @@ func main() {
 		}
 	}()
 
-	partitionConsumer, err := consumer.ConsumePartition("my_topic", 0, sarama.OffsetNewest)
+	partitionConsumer, err := consumer.ConsumePartition("tp33", 0, sarama.OffsetNewest)
 	if err != nil {
 		panic(err)
 	}
