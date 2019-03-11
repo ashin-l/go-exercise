@@ -10,6 +10,7 @@ import (
 
 func main() {
 	addrs := []string{"localhost:9092", "localhost:9093", "localhost:9094"}
+	fmt.Println(addrs)
 	//addrs := []string{"localhost:9092"}
 	consumer, err := sarama.NewConsumer(addrs, nil)
 	if err != nil {

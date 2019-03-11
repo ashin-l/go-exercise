@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	"github.com/ashin-l/go-exercise/logcollection/server/scheduler"
+
 	"github.com/ashin-l/go-exercise/logcollection/server/persist"
 
 	"github.com/ashin-l/go-exercise/logcollection/server/common"
@@ -38,5 +40,14 @@ func main() {
 	}
 
 	fmt.Println("Collection server start...")
-	engine.Run()
+	topics := []string{"testlog"}
+	e := engine.ConcurrentEngine{
+		Topics:      topics,
+		Scheduler:   &scheduler.QueuedScheduler{},
+		WorkerCount: 30,
+	}
+
+	e.Run()
+	signal := make(chan struct{})
+	<-signal
 }

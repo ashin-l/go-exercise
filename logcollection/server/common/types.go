@@ -9,7 +9,5 @@ type AppConfig struct {
 }
 
 type Item struct {
-	Id      string
-	Type    string
 	Content string
 }
