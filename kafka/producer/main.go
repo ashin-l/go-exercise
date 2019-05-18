@@ -8,8 +8,8 @@ import (
 )
 
 func main() {
-	addrs := []string{"localhost:9092", "localhost:9093", "localhost:9094"}
-	//addrs := []string{"localhost:9092"}
+	//addrs := []string{"localhost:9092", "localhost:9093", "localhost:9094"}
+	addrs := []string{"192.168.152.12:9092"}
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_1_0_0
 	admin, err := sarama.NewClusterAdmin(addrs, config)
@@ -36,7 +36,7 @@ func main() {
 		}
 	}()
 
-	msg := &sarama.ProducerMessage{Topic: "tp33", Value: sarama.StringEncoder("testing 123")}
+	msg := &sarama.ProducerMessage{Topic: "demo_kafka_topic_cxf", Value: sarama.StringEncoder("testing 123")}
 	for {
 		partition, offset, err := producer.SendMessage(msg)
 		if err != nil {
