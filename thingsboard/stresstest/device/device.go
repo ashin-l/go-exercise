@@ -1,6 +1,7 @@
 package device
 
 import (
+	"strconv"
 	"math/rand"
 	"os/signal"
 	"os"
@@ -57,21 +58,25 @@ func save(id int, token string) (dv common.Device, err error) {
 	req, err := http.NewRequest("POST", common.AppConf.Savedevice, bytes.NewReader([]byte(str)))
 	if err != nil {
 		fmt.Println("new request error:", err)
+		common.Logger.Error("new request error:", err)
 	}
 	req.Header.Set("X-Authorization", "Bearer " + token)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := cli.Do(req)
 	if err != nil {
+		common.Logger.Error(err.Error())
 		return
 	}
 	if resp.StatusCode != 200 {
-		err = errors.New("Createdevice error, http error code:" + resp.Status)
+		err = errors.New("Createdevice error, http error code:" + resp.Status + ", devicename:test" + strconv.Itoa(id))
+		common.Logger.Error(err.Error())
 		return 
 	}
 	data, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
 		fmt.Println("resp error:", err)
+		common.Logger.Error("resp error:", err)
 		return
 	}
 	mdevice := make(map[string]interface{})
@@ -83,21 +88,27 @@ func save(id int, token string) (dv common.Device, err error) {
 	req.Method = "GET"
 	resp, err = cli.Do(req)
 	if err != nil {
+		common.Logger.Error("resp error:", err)
 		return
 	}
 	if resp.StatusCode != 200 {
-		err = errors.New("getDeviCecredentials error, http error code:" + resp.Status)
+		err = errors.New("getDeviCecredentials error, http error code:" + resp.Status + ", devicename:" + dv.Name)
+		common.Logger.Error(err.Error())
 		return 
 	}
 	data, err = ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
 		fmt.Println("resp error:", err)
+		common.Logger.Error("resp error:", err, ", devicename:", dv.Name)
 		return
 	}
 	json.Unmarshal(data, &mdevice)
 	dv.AccessToken = mdevice["credentialsId"].(string)
 	err = persist.Insert(&dv)
+	if err != nil {
+		common.Logger.Error("insert to db error:", err, ", devicename:", dv.Name)
+	}
 	return
 
 }
@@ -111,15 +122,13 @@ func Create(id, num int) (sdv []common.Device, err error) {
 	}
 	for i := 0; i != num; i++ {
 		dv, err = save(id, token)
+		id++
 		if err != nil {
-			common.Logger.Error(err.Error())
-			fmt.Println(i, err)
-			i--
+			fmt.Println(i+1, err)
 			time.Sleep(1 * time.Second)
 			continue
 		}
 		sdv = append(sdv, dv)
-		id++
 	}
 	return
 }
@@ -137,24 +146,27 @@ func Delall() {
 	}
 	fmt.Println("len:", len(sdv))
 	for _, v := range sdv {
-		fmt.Println(v.DeviceId)
-		req, err := http.NewRequest(http.MethodDelete, common.AppConf.Deldevice + v.DeviceId, nil)
-		if err != nil {
-			fmt.Println("new request error:", err)
-			return
-		}
-		req.Header.Set("X-Authorization", "Bearer " + token)
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := cli.Do(req)
-		if err != nil {
-			fmt.Println("del error:", err)
-			return
-		}
-		if resp.StatusCode != 200 {
-			fmt.Println("Deletedevice error, http error code:" + resp.Status)
-			return 
-		}
-		persist.Delete(v.Id)
+		go func(common.Device) {
+			fmt.Println(v.Name)
+			req, err := http.NewRequest(http.MethodDelete, common.AppConf.Deldevice + v.DeviceId, nil)
+			if err != nil {
+				fmt.Println("new request error:", err)
+				return
+			}
+			req.Header.Set("X-Authorization", "Bearer " + token)
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := cli.Do(req)
+			if err != nil {
+				fmt.Println("del error:", err)
+				return
+			}
+			if resp.StatusCode != 200 {
+				fmt.Println("Deletedevice error, http error code:" + resp.Status)
+				return
+			}
+			persist.Delete(v.Id)
+		} (v)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 

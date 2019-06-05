@@ -2,32 +2,21 @@ package persist
 
 import (
 	"database/sql"
-	"os"
-	"fmt"
 	"github.com/ashin-l/go-exercise/thingsboard/stresstest/common"
 )
 
-func checkDB() {
-	if tbdb == nil {
-		fmt.Println("error: not connect db!")
-		os.Exit(0)
-	}
-}
-
 func Insert(dv *common.Device) error {
-	checkDB()
-	sqlstr := "insert into device(name, deviceid, accesstoken) values($1, $2, $3)"
-	_, err := tbdb.Query(sqlstr, dv.Name, dv.DeviceId, dv.AccessToken)
+	//sqlstr := "insert into device(name, deviceid, accesstoken) values($1, $2, $3)"
+	_, err := st.Exec(dv.Name, dv.DeviceId, dv.AccessToken)
+	//_, err := tbdb.Query(sqlstr, dv.Name, dv.DeviceId, dv.AccessToken)
 	return err
 }
 
 func Delete(id int) {
-	sqlstr := "delete from device where id = $1"
-	tbdb.Query(sqlstr, id)
+	delst.Exec(id)
 }
 
 func GetDevices(index, num int) (sdv []common.Device, err error) {
-	checkDB()
 	var rows *sql.Rows
 	if num > 0 {
 		sqlstr := "select * from device where id > $1 limit $2"

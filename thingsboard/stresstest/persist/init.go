@@ -8,6 +8,8 @@ import (
 )
 
 var tbdb *sql.DB
+var st *sql.Stmt
+var delst *sql.Stmt
 const CONNDB = "postgres://%s:%s@%s/%s?sslmode=disable"
 
 func InitDB() (err error) {
@@ -15,6 +17,17 @@ func InitDB() (err error) {
 	tbdb, err = sql.Open("postgres", connStr)
 	if err != nil {
 		fmt.Println("connect database error:", err)
+		return
+	}
+	sqlstr := "insert into device(name, deviceid, accesstoken) values($1, $2, $3)"
+	st, err = tbdb.Prepare(sqlstr)
+	if err != nil {
+		fmt.Println("create insert stmt error:", err)
+	}
+	sqlstr = "delete from device where id = $1"
+	delst, err = tbdb.Prepare(sqlstr)
+	if err != nil {
+		fmt.Println("create del stmt error:", err)
 	}
 	return
 }
