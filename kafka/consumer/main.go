@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	addrs := []string{"192.168.152.12:9092"}
+	addrs := []string{"192.168.152.44:9092"}
 	fmt.Println(addrs)
 	//addrs := []string{"localhost:9092"}
 	consumer, err := sarama.NewConsumer(addrs, nil)
@@ -22,7 +22,7 @@ func main() {
 		}
 	}()
 
-	partitionConsumer, err := consumer.ConsumePartition("demo_kafka_topic_cxf", 0, sarama.OffsetNewest)
+	partitionConsumer, err := consumer.ConsumePartition("topic_stress", 0, sarama.OffsetNewest)
 	if err != nil {
 		panic(err)
 	}

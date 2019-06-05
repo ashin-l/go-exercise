@@ -24,15 +24,18 @@ func convertLogLevel(level string) int {
 }
 
 func InitLogger() error {
-	Logger = logs.NewLogger(10000)
+	Logger = logs.GetBeeLogger()
 	config := make(map[string]interface{})
 	config["filename"] = AppConf.LogPath
 	config["level"] = convertLogLevel(AppConf.LogLevel)
+	config["maxdays"] = 100
 	configstr, err := json.Marshal(config)
 	if err != nil {
 		fmt.Println("init logger failed, marshal err:", err)
 		return err
 	}
 	Logger.SetLogger("file", string(configstr))
+	Logger.EnableFuncCallDepth(true)
+	//Logger.Async()
 	return nil
 }

@@ -1,5 +1,13 @@
 package common
 
-type Item struct {
-	Content string
+import (
+	"time"
+)
+
+type Device struct {
+	Id int
+	Name string
+	DeviceId string
+	AccessToken string
+	Created time.Time
 }
