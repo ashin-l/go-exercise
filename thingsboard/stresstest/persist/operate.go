@@ -7,7 +7,7 @@ import (
 
 func Insert(dv *common.Device) error {
 	//sqlstr := "insert into device(name, deviceid, accesstoken) values($1, $2, $3)"
-	_, err := st.Exec(dv.Name, dv.DeviceId, dv.AccessToken)
+	_, err := st.Exec(dv.Id, dv.Name, dv.DeviceId, dv.AccessToken)
 	//_, err := tbdb.Query(sqlstr, dv.Name, dv.DeviceId, dv.AccessToken)
 	return err
 }

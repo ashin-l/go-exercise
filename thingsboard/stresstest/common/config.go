@@ -11,6 +11,7 @@ type AppConfig struct {
 	LogPath   string
 	LogLevel  string
 	DeviceNum int
+	Createinterval int
 	Pubinterval int
 	MsgSize int
 	Host string
@@ -57,6 +58,12 @@ func InitConfig(confType, filename string) (err error) {
 	AppConf.DeviceNum, err = conf.Int("devicenum")
 	if err != nil || AppConf.DeviceNum <= 0 {
 		fmt.Println("配置文件出错：devicenum 非法!")
+		return err
+	}
+
+	AppConf.Createinterval, err = conf.Int("createinterval")
+	if err != nil {
+		fmt.Println("配置文件出错：createinterval 非法!")
 		return err
 	}
 

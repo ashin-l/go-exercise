@@ -19,7 +19,7 @@ func InitDB() (err error) {
 		fmt.Println("connect database error:", err)
 		return
 	}
-	sqlstr := "insert into device(name, deviceid, accesstoken) values($1, $2, $3)"
+	sqlstr := "insert into device(id, name, deviceid, accesstoken) values($1, $2, $3, $4)"
 	st, err = tbdb.Prepare(sqlstr)
 	if err != nil {
 		fmt.Println("create insert stmt error:", err)
@@ -61,7 +61,7 @@ func createTable() {
 		return
 	}
 	defer db.Close()
-	_, err = db.Query("create table device(id serial, name varchar(100), deviceid varchar(100), accesstoken varchar(100), created date default(now()))")
+	_, err = db.Query("create table device(id int, name varchar(100), deviceid varchar(100), accesstoken varchar(100), created date default(now()), primary key(id))")
 	if err != nil {
 		fmt.Println("create table error:", err)
 		return

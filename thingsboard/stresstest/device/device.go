@@ -53,7 +53,8 @@ func gettoken() (token string, err error) {
 	return
 }
 
-func save(id int, token string) (dv common.Device, err error) {
+func save(id int, token string, expired chan bool, wg *sync.WaitGroup) {
+	defer wg.Done()
 	str := fmt.Sprintf(savestr, id)
 	req, err := http.NewRequest("POST", common.AppConf.Savedevice, bytes.NewReader([]byte(str)))
 	if err != nil {
@@ -65,6 +66,11 @@ func save(id int, token string) (dv common.Device, err error) {
 	resp, err := cli.Do(req)
 	if err != nil {
 		common.Logger.Error(err.Error())
+		return
+	}
+	if resp.StatusCode == 401 {
+		fmt.Println("token expired!")
+		expired <- true
 		return
 	}
 	if resp.StatusCode != 200 {
@@ -81,6 +87,8 @@ func save(id int, token string) (dv common.Device, err error) {
 	}
 	mdevice := make(map[string]interface{})
 	json.Unmarshal(data, &mdevice)
+	dv := common.Device{}
+	dv.Id = id
 	dv.Name = mdevice["name"].(string)
 	dv.DeviceId = mdevice["id"].(map[string]interface{})["id"].(string)
 	rurl := fmt.Sprintf(common.AppConf.Getdevicecredentials, dv.DeviceId)
@@ -110,25 +118,27 @@ func save(id int, token string) (dv common.Device, err error) {
 		common.Logger.Error("insert to db error:", err, ", devicename:", dv.Name)
 	}
 	return
-
 }
 
-func Create(id, num int) (sdv []common.Device, err error) {
-	dv := common.Device{}
+func Create(id, num int) (err error) {
 	token, err := gettoken()
 	if err != nil {
 		fmt.Println("get token error:", err)
 		return
 	}
+	wg := &sync.WaitGroup{}
+	expired := make(chan bool)
+	ticker := time.NewTicker(time.Duration(common.AppConf.Createinterval) * time.Millisecond)
 	for i := 0; i != num; i++ {
-		dv, err = save(id, token)
-		id++
-		if err != nil {
-			fmt.Println(i+1, err)
-			time.Sleep(1 * time.Second)
-			continue
+		select {
+		case <- ticker.C:
+			wg.Add(1)
+			go save(id, token, expired, wg)
+			id++
+		case <- expired:
+			wg.Wait()
+			os.Exit(0)
 		}
-		sdv = append(sdv, dv)
 	}
 	return
 }
@@ -178,13 +188,12 @@ func Run() (err error) {
 	}
 	l := len(sdv)
 	if (l == 0) {
-		sdv, err = Create(1, common.AppConf.DeviceNum)
+		err = Create(1, common.AppConf.DeviceNum)
 	} else if (l < common.AppConf.DeviceNum) {
-		var tmp []common.Device
-		tmp, err = Create(sdv[l-1].Id + 1, common.AppConf.DeviceNum - l)
-		if err == nil {
-			sdv = append(sdv, tmp...)
-		}
+		err = Create(sdv[l-1].Id + 1, common.AppConf.DeviceNum - l)
+		var adddv []common.Device
+		adddv, err = persist.GetDevices(sdv[l-1].Id, common.AppConf.DeviceNum - l)
+		sdv = append(sdv, adddv...)
 	}
 	if err != nil {
 		return
@@ -236,7 +245,7 @@ func sendData(ctx context.Context, dv common.Device) {
 			return
 		case <- ticker.C:
 			data := fmt.Sprintf(djson, dv.DeviceId, rand.Intn(100), time.Now().UnixNano()/1e6, other)
-			_, err := http.Post(rurl, "application/json", bytes.NewReader([]byte(data)))
+			req, err := http.NewRequest("POST", rurl, bytes.NewReader([]byte(data)))
 			if err != nil {
 				errmsg := fmt.Sprintf("device %s post telemetry failed: %s", dv.Name, err.Error())
 				fmt.Println(errmsg)
@@ -244,6 +253,12 @@ func sendData(ctx context.Context, dv common.Device) {
 				muFailMsg.Lock()
 				failMsgNum++
 				muFailMsg.Unlock()
+				continue
+			}
+			req.Header.Set("Content-Type", "application/json")
+			_, err = cli.Do(req)
+			if err != nil {
+				common.Logger.Error(err.Error())
 				continue
 			}
 			muSuccessMsg.Lock()
