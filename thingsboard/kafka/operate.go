@@ -18,9 +18,8 @@ type DVdata struct {
 }
 
 func Insert(data *DVdata) error {
-	fmt.Println(data)
-	sqlstr := "insert into dvdata(deviceid, value, other, clienttime, servertime) values($1, $2, $3, $4, $5)"
-	_, err := tbdb.Query(sqlstr, data.Deviceid, data.Value, data.Other, data.Clienttime, data.Servertime)
+	//fmt.Println(data)
+	_, err := st.Exec(data.Deviceid, data.Value, data.Other, data.Clienttime, data.Servertime)
 	if err != nil {
 		fmt.Println(err)
 	}

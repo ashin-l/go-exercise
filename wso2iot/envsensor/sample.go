@@ -1,11 +1,12 @@
 package main
 
 import (
+	"strconv"
 	"fmt"
 	//import the Paho Go MQTT library
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"os"
-	//"time"
+	"time"
 )
 
 //define a function for the default message handler
@@ -17,8 +18,9 @@ var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 func main() {
 	//create a ClientOptions struct setting the broker address, clientid, turn
 	//off trace output and set the default message handler
-	opts := MQTT.NewClientOptions().AddBroker("tcp://iot.eclipse.org:1883")
+	opts := MQTT.NewClientOptions().AddBroker("tcp://192.168.152.48:1883")
 	opts.SetClientID("go-simple")
+	opts.SetUsername("LDW2drrkGSvwxny9emkr")
 	opts.SetDefaultPublishHandler(f)
 
 	//create and start a client using the above ClientOptions
@@ -29,7 +31,7 @@ func main() {
 
 	//subscribe to the topic /go-mqtt/sample and request messages to be delivered
 	//at a maximum qos of zero, wait for the receipt to confirm the subscription
-	if token := c.Subscribe("go-mqtt/sample", 0, nil); token.Wait() && token.Error() != nil {
+	if token := c.Subscribe("v1/devices/me/rpc/request/+", 0, nil); token.Wait() && token.Error() != nil {
 		fmt.Println(token.Error())
 		os.Exit(1)
 	}
@@ -38,14 +40,15 @@ func main() {
 	//from the server after sending each message
 	for i := 0; i < 5; i++ {
 		text := fmt.Sprintf("this is msg #%d!", i)
-		token := c.Publish("go-mqtt/sample", 0, false, text)
+		fmt.Println(text)
+		token := c.Publish("v1/devices/me/rpc/request/" + strconv.Itoa(i), 0, false, text)
 		token.Wait()
 	}
 
-	//time.Sleep(3 * time.Second)
+	time.Sleep(100 * time.Second)
 
 	//unsubscribe from /go-mqtt/sample
-	if token := c.Unsubscribe("go-mqtt/sample"); token.Wait() && token.Error() != nil {
+	if token := c.Unsubscribe("v1/devices/me/rpc/request/+"); token.Wait() && token.Error() != nil {
 		fmt.Println(token.Error())
 		os.Exit(1)
 	}

@@ -7,12 +7,18 @@ import (
 )
 
 var tbdb *sql.DB
+var st *sql.Stmt
 const CONNDB = "postgres://postgres:111@192.168.152.44/tb41?sslmode=disable"
 
 func InitDB() (err error) {
 	tbdb, err = sql.Open("postgres", CONNDB)
 	if err != nil {
 		fmt.Println("connect database error:", err)
+	}
+	sqlstr := "insert into dvdata(deviceid, value, other, clienttime, servertime) values($1, $2, $3, $4, $5)"
+	st, err = tbdb.Prepare(sqlstr)
+	if err != nil {
+		fmt.Println("create insert stmt error:", err)
 	}
 	return
 }

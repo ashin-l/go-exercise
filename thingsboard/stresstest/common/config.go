@@ -11,9 +11,11 @@ type AppConfig struct {
 	LogPath   string
 	LogLevel  string
 	DeviceNum int
+	Transport string
 	Createinterval int
 	Pubinterval int
 	MsgSize int
+	MsgTimeout int
 	Host string
 	Username string
 	Password string
@@ -22,6 +24,8 @@ type AppConfig struct {
 	Deldevice string
 	Getdevicecredentials string
 	Telemetryup string
+	MqttTopic string
+	Mqttbroker string
 	DBhost    string
 	DBport    string
 	DBuser    string
@@ -61,6 +65,11 @@ func InitConfig(confType, filename string) (err error) {
 		return err
 	}
 
+	AppConf.Transport = conf.String("transport")
+	if len(AppConf.Transport) == 0 {
+		AppConf.Transport = "mqtt"
+	}
+
 	AppConf.Createinterval, err = conf.Int("createinterval")
 	if err != nil {
 		fmt.Println("配置文件出错：createinterval 非法!")
@@ -76,6 +85,12 @@ func InitConfig(confType, filename string) (err error) {
 	AppConf.MsgSize, err = conf.Int("msgsize")
 	if err != nil || AppConf.MsgSize <= 0 {
 		fmt.Println("配置文件出错：msgsize 非法!")
+		return err
+	}
+
+	AppConf.MsgTimeout, err = conf.Int("msgtimeout")
+	if err != nil || AppConf.MsgTimeout <= 0 {
+		fmt.Println("配置文件出错：msgtimeout 非法!")
 		return err
 	}
 
@@ -132,6 +147,18 @@ func InitConfig(confType, filename string) (err error) {
 		return
 	}
 	AppConf.Telemetryup = fmt.Sprintf(AppConf.Telemetryup, AppConf.Host, "%s")
+
+	AppConf.MqttTopic = conf.String("mqtttopic")
+	err = checkLen(AppConf.MqttTopic, "mqtttopic")
+	if err != nil {
+		return
+	}
+
+	AppConf.Mqttbroker = conf.String("mqttbroker")
+	err = checkLen(AppConf.MqttTopic, "mqttbroker")
+	if err != nil {
+		return
+	}
 
 	AppConf.DBhost = conf.String("dbhost")
 	err = checkLen(AppConf.DBhost, "dbhost")

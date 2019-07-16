@@ -19,7 +19,7 @@ func Delete(id int) {
 func GetDevices(index, num int) (sdv []common.Device, err error) {
 	var rows *sql.Rows
 	if num > 0 {
-		sqlstr := "select * from device where id > $1 limit $2"
+		sqlstr := "select * from device where id > $1 order by id limit $2"
 		rows, err = tbdb.Query(sqlstr, index, num)
 	} else {
 		sqlstr := "select * from device"
