@@ -5,9 +5,9 @@ import (
 )
 
 type Device struct {
-	Id int
-	Name string
-	DeviceId string
+	Id          int
+	Name        string
+	DeviceId    string
 	AccessToken string
-	Created time.Time
+	Created     time.Time
 }

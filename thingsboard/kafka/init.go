@@ -8,7 +8,7 @@ import (
 
 var tbdb *sql.DB
 var st *sql.Stmt
-const CONNDB = "postgres://postgres:111@192.168.152.44/tb41?sslmode=disable"
+const CONNDB = "postgres://postgres:111@192.168.152.44/tbstress?sslmode=disable"
 
 func InitDB() (err error) {
 	tbdb, err = sql.Open("postgres", CONNDB)
