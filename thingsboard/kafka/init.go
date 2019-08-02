@@ -3,11 +3,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+
 	_ "github.com/lib/pq"
 )
 
 var tbdb *sql.DB
 var st *sql.Stmt
+
 const CONNDB = "postgres://postgres:111@192.168.152.44/tbstress?sslmode=disable"
 
 func InitDB() (err error) {
@@ -34,7 +36,7 @@ func createTable() {
 		return
 	}
 	defer db.Close()
-	_, err = db.Query("create table dvdata(id serial, deviceid varchar(100), value int, other varchar(1000), clienttime int8, servertime int8, createdtime int8, created timestamp default(now()))")
+	_, err = db.Query("create table dvdata(id serial, deviceid varchar(100), value int, other varchar(1000), clienttime int8, servertime int8, createdtime int8, created timestamp with time zone default(now()))")
 	if err != nil {
 		fmt.Println("create table error:", err)
 		return

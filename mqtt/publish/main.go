@@ -6,13 +6,15 @@ import (
 
 	//import the Paho Go MQTT library
 	"os"
+
 	MQTT "github.com/eclipse/paho.mqtt.golang"
+
 	//"strconv"
 	"github.com/astaxie/beego/config"
 )
 
 type AppConfig struct {
-	Addr   string
+	Addr  string
 	Topic string
 }
 
@@ -39,7 +41,6 @@ func main() {
 		fmt.Println("配置文件出错，topic 不能为空")
 	}
 
-
 	//create a ClientOptions struct setting the broker address, clientid, turn
 	//off trace output and set the default message handler
 	opts := MQTT.NewClientOptions().AddBroker(AppConf.Addr)
@@ -61,7 +62,7 @@ func main() {
 
 	djson := `{
 		"payloadData": {
-			"timeStamp": %d,
+			"clienttime": %d,
 			"value": %d
 		}
 	}

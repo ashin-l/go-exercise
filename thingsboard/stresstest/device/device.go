@@ -1,41 +1,44 @@
 package device
 
 import (
-	"strconv"
-	"math/rand"
-	"os/signal"
-	"os"
-	"time"
-	"sync"
-	"context"
-	"github.com/ashin-l/go-exercise/thingsboard/stresstest/persist"
-	"net/url"
-	"errors"
-	"io/ioutil"
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/ashin-l/go-exercise/thingsboard/stresstest/common"
+	"io/ioutil"
+	"math/rand"
 	"net/http"
+	"net/url"
+	"os"
+	"os/signal"
+	"strconv"
+	"sync"
+	"time"
+
+	"github.com/ashin-l/go-exercise/thingsboard/stresstest/common"
+	"github.com/ashin-l/go-exercise/thingsboard/stresstest/persist"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
 const (
 	userstr = `{"username":"%s", "password":"%s"}`
 	savestr = `{"name":"test%d", "type":"stress"}`
-	djson = `{"deviceid":"%s","value":"%d","clienttime":%d,"other":"%s"}`
+	djson   = `{"deviceid":"%s","value":"%d","clienttime":%d,"other":"%s"}`
 )
 
 var (
-	clients map[int]MQTT.Client
-	cli = &http.Client{}
-	other []byte
-	successMsgNum    int
-	failMsgNum       int
-	muSuccessMsg     sync.Mutex
-	muFailMsg        sync.Mutex
-	successCli int
-	//muSuccessCli sync.Mutex
+	//clients       map[int]MQTT.Client
+	clients       sync.Map
+	cli           = &http.Client{}
+	other         []byte
+	successMsgNum int
+	failMsgNum    int
+	muSuccessMsg  sync.Mutex
+	muFailMsg     sync.Mutex
+	successCli    int
+	muSuccessCli  sync.Mutex
+	wg            sync.WaitGroup
 )
 
 func gettoken() (token string, err error) {
@@ -65,7 +68,7 @@ func save(id int, token string, expired chan bool, wg *sync.WaitGroup) {
 		fmt.Println("new request error:", err)
 		common.Logger.Error("new request error:", err)
 	}
-	req.Header.Set("X-Authorization", "Bearer " + token)
+	req.Header.Set("X-Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := cli.Do(req)
 	if err != nil {
@@ -80,7 +83,7 @@ func save(id int, token string, expired chan bool, wg *sync.WaitGroup) {
 	if resp.StatusCode != 200 {
 		err = errors.New("Createdevice error, http error code:" + resp.Status + ", devicename:test" + strconv.Itoa(id))
 		common.Logger.Error(err.Error())
-		return 
+		return
 	}
 	data, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
@@ -106,7 +109,7 @@ func save(id int, token string, expired chan bool, wg *sync.WaitGroup) {
 	if resp.StatusCode != 200 {
 		err = errors.New("getDeviCecredentials error, http error code:" + resp.Status + ", devicename:" + dv.Name)
 		common.Logger.Error(err.Error())
-		return 
+		return
 	}
 	data, err = ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
@@ -138,11 +141,11 @@ func Create(id, num int) (err error) {
 	}()
 	for i := 0; i != num; i++ {
 		select {
-		case <- ticker.C:
+		case <-ticker.C:
 			wg.Add(1)
 			go save(id, token, expired, wg)
 			id++
-		case <- expired:
+		case <-expired:
 			wg.Wait()
 			os.Exit(0)
 		}
@@ -165,12 +168,12 @@ func Delall() {
 	for _, v := range sdv {
 		go func(common.Device) {
 			fmt.Println(v.Name)
-			req, err := http.NewRequest(http.MethodDelete, common.AppConf.Deldevice + v.DeviceId, nil)
+			req, err := http.NewRequest(http.MethodDelete, common.AppConf.Deldevice+v.DeviceId, nil)
 			if err != nil {
 				fmt.Println("new request error:", err)
 				return
 			}
-			req.Header.Set("X-Authorization", "Bearer " + token)
+			req.Header.Set("X-Authorization", "Bearer "+token)
 			req.Header.Set("Content-Type", "application/json")
 			resp, err := cli.Do(req)
 			if err != nil {
@@ -182,7 +185,7 @@ func Delall() {
 				return
 			}
 			persist.Delete(v.Id)
-		} (v)
+		}(v)
 		time.Sleep(100 * time.Millisecond)
 	}
 }
@@ -194,12 +197,12 @@ func Run() (err error) {
 		return
 	}
 	l := len(sdv)
-	if (l == 0) {
+	if l == 0 {
 		err = Create(1, common.AppConf.DeviceNum)
-	} else if (l < common.AppConf.DeviceNum) {
-		err = Create(sdv[l-1].Id + 1, common.AppConf.DeviceNum - l)
+	} else if l < common.AppConf.DeviceNum {
+		err = Create(sdv[l-1].Id+1, common.AppConf.DeviceNum-l)
 		var adddv []common.Device
-		adddv, err = persist.GetDevices(sdv[l-1].Id, common.AppConf.DeviceNum - l)
+		adddv, err = persist.GetDevices(sdv[l-1].Id, common.AppConf.DeviceNum-l)
 		sdv = append(sdv, adddv...)
 	}
 	if err != nil {
@@ -214,28 +217,37 @@ func Run() (err error) {
 	case "http":
 		send = sendHttp
 	case "mqtt":
-		clients = make(map[int]MQTT.Client)
-		opts := MQTT.NewClientOptions().AddBroker(common.AppConf.Mqttbroker)
-		opts.SetCleanSession(true)
+		//clients = make(map[int]MQTT.Client)
 		for _, v := range sdv {
-			opts.SetClientID(v.Name)
-			opts.SetUsername(v.AccessToken)
-			c := MQTT.NewClient(opts)
-			if token := c.Connect(); token.Wait() && token.Error() != nil {
-				fmt.Println(token.Error())
-				common.Logger.Error(token.Error().Error(), v.Name)
-				fmt.Println("???????????????????????????")
-				continue
-			}
-			//muSuccessCli.Lock()
-			successCli++
-			fmt.Println("+++++++++++++++++++++++++++++++++++++++++++++++", v.Name, "connected!, num:", successCli)
+			wg.Add(1)
+			go func(v common.Device) {
+				opts := MQTT.NewClientOptions().AddBroker(common.AppConf.Mqttbroker)
+				opts.SetCleanSession(true)
+				opts.SetClientID(v.Name)
+				opts.SetUsername(v.AccessToken)
+				c := MQTT.NewClient(opts)
+				for {
+					if token := c.Connect(); token.Wait() && token.Error() != nil {
+						fmt.Println(token.Error())
+						common.Logger.Error(token.Error().Error(), v.Name)
+						fmt.Println("???????????????????????????", v.Name)
+						continue
+					}
+					muSuccessCli.Lock()
+					successCli++
+					muSuccessCli.Unlock()
+					clients.Store(v.Id, c)
+					//clients[v.Id] = c
+					wg.Done()
+					return
+				}
+			}(v)
+			//fmt.Println("+++++++++++++++++++++++++++++++++++++++++++++++", v.Name, "connected!, num:", successCli)
 			//common.Logger.Info("+++++++++++++++++++++++++++++++++++++++++++++++  %s, %s, %d", v.Name, "connected!, num:", successCli)
-			//muSuccessCli.Unlock()
-			clients[v.Id] = c
 		}
 		send = sendMQTT
 	}
+	wg.Wait()
 	fmt.Println("init...")
 	start := time.Now()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -246,10 +258,10 @@ func Run() (err error) {
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan)
 	exit := false
-	Loop:
+Loop:
 	for _, v := range sdv {
 		select {
-		case <- ticker.C:
+		case <-ticker.C:
 			go send(ctx, v)
 		case <-sigChan:
 			exit = true
@@ -259,7 +271,7 @@ func Run() (err error) {
 	fmt.Println("down...")
 	common.Logger.Info("============================ down...")
 	if !exit {
-		<- sigChan
+		<-sigChan
 	}
 	cancel()
 	totaltime := time.Now().Sub(start)
@@ -278,7 +290,7 @@ func Run() (err error) {
 	common.Logger.Info("======================================================")
 	common.Logger.Info("消息协议: %s", common.AppConf.Transport)
 	common.Logger.Info("设备数: %d", common.AppConf.DeviceNum)
-	common.Logger.Info("成功连接数: ", successCli)
+	common.Logger.Info("成功连接数: %d", successCli)
 	common.Logger.Info("成功消息: %d", successMsgNum)
 	common.Logger.Info("失败消息: %d", failMsgNum)
 	common.Logger.Info("发送消息间隔（毫秒）: %d", common.AppConf.Pubinterval)
@@ -287,10 +299,10 @@ func Run() (err error) {
 	common.Logger.Info("======================================================")
 	common.Logger.Close()
 
-	for _, c := range clients {
-		c.Disconnect(5)
-	}
-	time.Sleep(3 * time.Second)
+	//for _, c := range clients {
+	//	c.Disconnect(5)
+	//}
+	time.Sleep(10 * time.Second)
 	fmt.Println("disconnect!")
 	return
 }
@@ -305,9 +317,9 @@ func sendHttp(ctx context.Context, dv common.Device) {
 	}()
 	for {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			return
-		case <- ticker.C:
+		case <-ticker.C:
 			data := fmt.Sprintf(djson, dv.DeviceId, rand.Intn(100), time.Now().UnixNano()/1e6, other)
 			req, err := http.NewRequest("POST", rurl, bytes.NewReader([]byte(data)))
 			if err != nil {
@@ -338,6 +350,11 @@ func sendHttp(ctx context.Context, dv common.Device) {
 }
 
 func sendMQTT(ctx context.Context, dv common.Device) {
+	if _, ok := clients.Load(dv.Id); !ok {
+		return
+	}
+	value, _ := clients.Load(dv.Id)
+	c := value.(MQTT.Client)
 	ticker := time.NewTicker(time.Duration(common.AppConf.Pubinterval) * time.Millisecond)
 	defer func() {
 		ticker.Stop()
@@ -345,14 +362,17 @@ func sendMQTT(ctx context.Context, dv common.Device) {
 	rand.Seed(37)
 	for {
 		select {
-		case <- ctx.Done():
-			fmt.Println("done ", dv.Name)
+		case <-ctx.Done():
+			c.Disconnect(3)
+			//clients[dv.Id].Disconnect(3)
+			//fmt.Println("done ", dv.Name)
 			return
-		case <- ticker.C:
+		case <-ticker.C:
 			payload := fmt.Sprintf(djson, dv.DeviceId, rand.Intn(100), time.Now().UnixNano()/1e6, other)
-			token := clients[dv.Id].Publish(common.AppConf.MqttTopic, 1, false, payload)
+			//token := clients[dv.Id].Publish(common.AppConf.MqttTopic, 1, false, payload)
+			token := c.Publish(common.AppConf.MqttTopic, 1, false, payload)
 			if token.Error() != nil {
-				fmt.Println(token.Error())
+				fmt.Println(time.Now(), token.Error())
 				common.Logger.Error(token.Error().Error(), dv.Name)
 				muFailMsg.Lock()
 				failMsgNum++
@@ -360,15 +380,15 @@ func sendMQTT(ctx context.Context, dv common.Device) {
 			} else if !token.WaitTimeout(time.Duration(common.AppConf.MsgTimeout) * time.Second) {
 				muFailMsg.Lock()
 				failMsgNum++
-				fmt.Println("publish msg time out!", failMsgNum)
-				common.Logger.Error("device: %s, publish msg time out! failmsgnum %d", dv.Name, failMsgNum)
+				fmt.Println(time.Now(), "publish msg time out!", failMsgNum)
+				common.Logger.Error("device: %s, publish msg time out! failmsgnum %d, successmsgnum %d", dv.Name, failMsgNum, successMsgNum)
 				muFailMsg.Unlock()
 			} else {
 				muSuccessMsg.Lock()
 				successMsgNum++
 				//fmt.Printf("device:%s, success msg num:%d\n", dv.Name, successMsgNum)
-				//common.Logger.Info("device:%s, success msg num:%d\n", dv.Name, successMsgNum)
 				muSuccessMsg.Unlock()
+				common.Logger.Info("device:%s, success msg num:%d\n", dv.Name, successMsgNum)
 			}
 		}
 	}

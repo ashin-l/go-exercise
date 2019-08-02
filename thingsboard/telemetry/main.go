@@ -9,8 +9,9 @@ import (
 )
 
 func main() {
-	opts := MQTT.NewClientOptions().AddBroker("tcp://192.168.152.48:1883")
-	opts.SetClientID("cli-pub")
+	//opts := MQTT.NewClientOptions().AddBroker("tcp://192.168.152.21:31883")
+	opts := MQTT.NewClientOptions().AddBroker("tcp://127.0.0.1:1883")
+	opts.SetClientID("mytest")
 	opts.SetUsername("A1_TEST_TOKEN")
 
 	c := MQTT.NewClient(opts)
@@ -21,18 +22,16 @@ func main() {
 	topic := "v1/devices/me/telemetry"
 
 	djson := `{
-				"ts":%d,
-				"values":{
-					"temperature":%d
-					}
+				"clienttime":%d,
+				"value":%d
 				}`
 
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer func() {
 		ticker.Stop()
 	}()
-	rand.Seed(37)
-	for _ = range ticker.C {
+	rand.Seed(3)
+	for range ticker.C {
 		payload := fmt.Sprintf(djson, time.Now().UnixNano()/1e6, rand.Intn(40)+114)
 		fmt.Println(payload)
 		token := c.Publish(topic, 1, false, payload)
