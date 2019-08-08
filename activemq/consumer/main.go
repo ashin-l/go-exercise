@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"time"
 
 	"github.com/jjeffery/stomp"
 )
@@ -44,13 +43,13 @@ func subscribe(ctx context.Context, conn *stomp.Conn, destination, id string) {
 	}
 	defer sub.Unsubscribe()
 	defer fmt.Printf("=======================   close client: %s\n", id)
-	chclose := make(chan bool)
-	if id == "A2" {
-		go func() {
-			<-time.After(30 * time.Second)
-			chclose <- true
-		}()
-	}
+	//	chclose := make(chan bool)
+	//	if id == "A2" {
+	//		go func() {
+	//			<-time.After(30 * time.Second)
+	//			chclose <- true
+	//		}()
+	//	}
 
 	for {
 		select {
@@ -66,9 +65,9 @@ func subscribe(ctx context.Context, conn *stomp.Conn, destination, id string) {
 				return
 			}
 			fmt.Printf("clientID:%s ,msg body:%s\n\n", id, m.Body)
-			//m.Conn.Ack(m)
-		case <-chclose:
-			return
+			m.Conn.Ack(m)
+			//		case <-chclose:
+			//			return
 		}
 	}
 }
