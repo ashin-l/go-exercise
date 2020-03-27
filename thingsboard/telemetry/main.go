@@ -9,10 +9,10 @@ import (
 )
 
 func main() {
-	//opts := MQTT.NewClientOptions().AddBroker("tcp://192.168.152.21:31883")
-	opts := MQTT.NewClientOptions().AddBroker("tcp://127.0.0.1:1883")
+	opts := MQTT.NewClientOptions().AddBroker("tcp://192.168.152.21:31883")
+	//opts := MQTT.NewClientOptions().AddBroker("tcp://127.0.0.1:1883")
 	opts.SetClientID("mytest")
-	opts.SetUsername("A1_TEST_TOKEN")
+	opts.SetUsername("n0w7DKcAGpInRALj1rrh")
 
 	c := MQTT.NewClient(opts)
 	if token := c.Connect(); token.Wait() && token.Error() != nil {

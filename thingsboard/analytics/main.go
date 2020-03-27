@@ -17,10 +17,10 @@ const (
 )
 
 func init() {
-	dbhost := "192.168.152.44"
+	dbhost := "192.168.152.43"
 	//dbport := "5432"
 	dbuser := "postgres"
-	dbpassword := "111"
+	dbpassword := "postgres"
 	dbname := "tbstress"
 	orm.RegisterDriver("postgres", orm.DRPostgres)
 	//dburl := dbuser + ":" + dbpassword + "@tcp(" + dbhost + ":" + dbport + ")/" + dbname + "?charset=utf8&loc=Local"
@@ -34,24 +34,37 @@ func init() {
 }
 
 type Dvdata struct {
-	Id          int64
-	DeviceID    string `orm:"column(deviceid)"`
-	Value       int
-	Other       string
-	ClientTime  int64 `orm:"column(clienttime)"`
-	ServerTime  int64 `orm:"column(servertime)"`
-	Created     time.Time
-	CreatedTime int64 `orm:"column(createdtime)"`
+	Id            int64
+	DeviceID      string `orm:"column(deviceid)"`
+	Value         int
+	Other         string
+	ClientTime    int64 `orm:"column(clienttime)"`
+	ServerTime    int64 `orm:"column(servertime)"`
+	Ts            string
+	Transporttime int64
+	Created       time.Time
+	CreatedTime   int64 `orm:"column(createdtime)"`
 }
 
 func main() {
 	var data Dvdata
-	orm.NewOrm().QueryTable(TBNAME).Filter("id", 1).One(&data)
+	err := orm.NewOrm().QueryTable(TBNAME).Filter("id", 1).One(&data)
+	if err != nil {
+		fmt.Println("err:", err)
+		return
+	}
 	data.CreatedTime = data.Created.UnixNano() / 1e6
 	tmp := data.ServerTime - data.ClientTime
 	smin, smax, snum := tmp, tmp, tmp
 	tmp = data.CreatedTime - data.ClientTime
 	dmin, dmax, dnum := tmp, tmp, tmp
+	data.Transporttime, err = strconv.ParseInt(data.Ts, 10, 64)
+	if err != nil {
+		fmt.Println("ts to int error:", err)
+		return
+	}
+	tmp = data.Transporttime - data.ClientTime
+	emin, emax, enum := tmp, tmp, tmp
 
 	qs := orm.NewOrm().QueryTable(TBNAME).Filter("id__gt", 1)
 	count, _ := qs.Count()
@@ -84,11 +97,24 @@ func main() {
 				dmax = tmp
 			}
 			dnum += tmp
+			data.Transporttime, err = strconv.ParseInt(data.Ts, 10, 64)
+			if err != nil {
+				fmt.Println("ts to int error:", err)
+				return
+			}
+			tmp = data.Transporttime - data.ClientTime
+			if emin > tmp {
+				emin = tmp
+			} else if emax < tmp {
+				emax = tmp
+			}
+			enum += tmp
 		}
 		offset++
 	}
 	count++
 	fmt.Println("数据条数：", count)
+	fmt.Printf("到emq服务器最小用时（毫秒）：%d, 最大用时：%d, 平均用时：%d\n", emin, emax, enum/count)
 	fmt.Printf("到分析服务器最小用时（毫秒）：%d, 最大用时：%d, 平均用时：%d\n", smin, smax, snum/count)
 	fmt.Printf("到数据库最小用时（毫秒）：%d, 最大用时：%d, 平均用时：%d\n", dmin, dmax, dnum/count)
 	fileName := "logs/" + strconv.FormatInt(time.Now().Unix(), 10) + ".log"

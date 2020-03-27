@@ -45,13 +45,16 @@ func main() {
 			fmt.Println("connect error: ", err.Error())
 			continue
 		}
+		fmt.Println("connect!!!")
 		go process(conn)
 	}
 }
 
 func process(conn net.Conn) {
+	fmt.Println("1111111111111")
 	defer conn.Close()
 	for {
+		fmt.Println("xxx")
 		buf := make([]byte, 1024)
 		_, err := conn.Read(buf)
 		if err != nil {
@@ -68,6 +71,7 @@ func process(conn net.Conn) {
 		if err != nil {
 			fmt.Println("marshal json failed:", err)
 		} else {
+			fmt.Println("jData:", jData)
 			resp, err := http.Post(AppConf.URL, "application/json", bytes.NewReader(jData))
 			if err != nil {
 				fmt.Println("post failed:", err)

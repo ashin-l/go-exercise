@@ -222,9 +222,11 @@ func Run() (err error) {
 			wg.Add(1)
 			go func(v common.Device) {
 				opts := MQTT.NewClientOptions().AddBroker(common.AppConf.Mqttbroker)
-				opts.SetCleanSession(true)
-				opts.SetClientID(v.Name)
-				opts.SetUsername(v.AccessToken)
+				opts.SetCleanSession(false)
+				opts.SetClientID(v.DeviceId)
+				//opts.SetUsername(v.AccessToken)
+				opts.SetUsername("admin")
+				opts.SetPassword("thtw")
 				c := MQTT.NewClient(opts)
 				for {
 					if token := c.Connect(); token.Wait() && token.Error() != nil {

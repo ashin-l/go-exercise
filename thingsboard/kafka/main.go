@@ -21,16 +21,15 @@ func main() {
 	}
 
 	/*
-	datas, err := Getdatas(0, -1)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Println(datas)
+		datas, err := Getdatas(0, -1)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println(datas)
 	*/
 
-
-	addrs := []string{"192.168.152.44:9092"}
+	addrs := []string{"localhost:9092"}
 	consumer, err := sarama.NewConsumer(addrs, nil)
 	if err != nil {
 		panic(err)
@@ -41,7 +40,7 @@ func main() {
 		}
 	}()
 
-	partitionConsumer, err := consumer.ConsumePartition("topic_stress", 0, sarama.OffsetNewest)
+	partitionConsumer, err := consumer.ConsumePartition("tbstress", 0, sarama.OffsetNewest)
 	if err != nil {
 		panic(err)
 	}
